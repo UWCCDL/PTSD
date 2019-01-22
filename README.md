@@ -1,7 +1,12 @@
-# PTSD model
+# A simple ACT-R models of intrusive memories in PTSD 
 
-In ACT-R, everything would be a simple cue-based retrieval process
+## Main idea
 
+The main idead behind the model is that intrusive memories in PTSD are memories who additional emotional boost leads to "hijacking" the (otherwise rational) declarative memory system. When the emotional boost increases the activation of a memory beyond a certain threshold, the memory becomes "intrusive" because its strength overrides declarative decay and cue-based filtering during memory retrieval. This, in turns, leads to a positive feedback loop, leading the memory's activation to self-perpetuation.
+
+## Implementation
+
+In ACT-R, everything would be a simple cue-based retrieval process.
 
 To initial a retrieval, all we need to do is to occasionally change the chunks in visual, aural, and imaginal buffers, and reset the “processed” slot in the goal buffer.
 
@@ -19,13 +24,13 @@ This is a simple function:
 
 ```lisp
 (defun life ()
-	(loop-until-end
-		(generate-new-context)
-		(when (time = target)
-			  (insert traumatic Q0))
-		(set-new context)
-		(set-goal)
-		(set-new-update))
+  (loop-until-end
+	 (generate-new-context)
+	 (when (time = target)
+	   (insert traumatic Q0))
+	 (set-new context)
+	 (set-goal)
+	 (set-new-update))
 ```
 
 ## Implementation details
@@ -37,7 +42,7 @@ We need to measure chunk size. We can start with very small chunk contexts, mayb
 
 The emotional valence of each chunk is calculated as a function of its cues. Each cue has a value of V(q) ~ N(0).
 
-One cue, Q0, has an incredibly high value V, which is fixed. In fact, all cue values are stored in a table. However, we can calculate exactly the emotional value of each chunk as the sum of the emotional valences of its cues, V(chunk) = Sum[q] V(q).
+One cue, Q0, is defined as having an incredibly high value emotional valence V, which is fixed. In fact, all cue values are stored in a table. However, we can calculate exactly the emotional value of each chunk as the sum of the emotional valences of its cues, V(chunk) = Sum[q] V(q).
 
 ## Associations
 
@@ -51,7 +56,7 @@ The other is the emotional association Vs. Sij has an additive term, which is th
 
 V could be just the emotional valence of chunk c. This is equivalent to adding a fixed quantity NWV… 
 
-The alterntive from Fum & STocco 2004 is to use V to as associative links…
+The alternative from Fum & Stocco 2004 is to use V to as associative links. In practice, the result is the same (activation boost), but the form proposed by Fum & Stocco (2004) cannot be derived from rational analysis. Here, we will derive a simpler form using the same rational analysis approach that was originally used by Anderson as the basis of ACT-R's equations.
 
 We can calculate the probability of retrieval of an average memory (sliding window) since the moment is introduced, against the probability of the traumatic memory.
 
@@ -60,6 +65,7 @@ P(c)/P(-c) * P(Q|c)/P(Q)
 
 
 A rational approach to memory is that we should retrieve chunks according to ther probability of being used. This approach assumes that all information is, potentially, equally important, and the only important issue to allocate the availability of information so that the more likely relevant information can be retrieved more easily.
+
 However, in more general terms, one can calculate the expected utility of information E[c]. The expected utility conveys both the probability of needing the piece of information, and the additional value of using it. This is akin to the concept of expected utility in economic theory, which is calculated as the product of the probability of the event by its future rewards. In simple terms, we can write”
 E[c] = P(c|Q) * V(c)
 	
@@ -76,12 +82,10 @@ Anderson 1991 proposed that these terms could be decomposed into the log sum:
 log(P(c)/P(-c)) + log P(Q|c)/P(Q) + log  V(c) 
 
 The first two terms have been extensively discussed in the context of ACT-R. In particular, the first can be captured by the equation log Sum t (t0 –t)^-d. The second, represents contextual activation, and is the result of an empirical co-occurrence between the contents of c and the contents of Q.
+
 The third term is the topic of this paper. Specifically, we will show that  for events that have an very high emotional costs, such as traumatic events, the additional term can result in catastrophic runoff. This is due to the peculiar interaction between memory and environment: When items are retrieved, they become more likely to be retrieved in the future. This positive feedback loop is typically kept at bay by the contextual factor, which favor elements based on co-occurrence. When the third factor V overtakes both, it generates two contextual effects: First, it leads to dominate the base-level probabilities. Second, it tends to generate even stronger associations with other cues, thus contaminating them and eventually taking over the contextual factor as well. Both of these mechanisms are known, under different names, in the field. Furthermore, this model provides an explanation of why certain treatments work, and why other fail.
 
-
-
-
-# Representation
+## Representation
 
 Memory is represented as a database of individual memories. The
 database is simply a list.
