@@ -1,0 +1,137 @@
+---
+title: "Memory Decay in ACT-R"
+author: "Andrea Stocco"
+date: "10/16/2016"
+output:	html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Memory decay in ACT-R
+
+This is a simple illustration of memory decay in ACT-R. In ACT-R, a chunk's base level activation $B_i$ is governed by the equation:
+
+$B_i = \sum_j \log (t_i^{-d})$
+
+First, we create two variables:
+
+1. `d`, corresponding to the decay rate $d$, set toan (arbitrary) value of $d = 0.5$ 
+2. `t`, a time of 2 minutes (120 seconds) sampled at 10 Hz.
+
+```{r}
+d <- 0.25
+t <- seq(0, 120, 0.1)
+```
+
+## Creating the time traces
+
+We now create four time traces. Each time trace is calculating using ACT-R's decay equation, where the base-level activation $B_i$ of a chunk $i$ follows the function $B_i = \log (t_i^{-d})$. For simplicity, we assign a value of $B_i = 0$ for values of $t_i < 0$.
+
+1. `t0` corresponding to the creation of the chunk at $t = 0$
+2. `t20` corresponding to the first retrieval after 20 seconds, $t = 20$
+3. `t70` corresponding to the second retrival after 50 more seconds, at $t = 70$
+4. `t75` corresponding to a third retrieval 5 seconds after the second, at $t = 75$
+
+```{r}
+t0 <- ifelse (t <= 0, 0, t ** (-1 * d))
+t20 <- ifelse (t <= 20, 0, (t - 20) ** (-1 * d))
+t70 <- ifelse (t <= 70, 0, (t - 70) ** (-1 * d))
+t75 <- ifelse (t <= 75, 0, (t - 75) ** (-1 * d))
+```
+
+Now, we can plot the timecourses of four traces separately 
+
+```{r, fig.width = 6, fig.height = 4}
+par(mar=c(4,4,2,2))
+ylab <- expression(paste("Activation ", italic(B)[italic(i)]))
+xlab <- expression(paste("Time ", italic(t), " (secs)"))
+plot(x = t, y = log(t0), lwd = 4, col="grey75", main = "Activation over time", type = "l", ylab = ylab, xlab = xlab, ylim=c(-1, 1.5))
+grid()
+
+lines(x = t, y = log(t20), lwd = 4, col="grey50")
+lines(x = t, y = log(t70), lwd = 4, col="grey25")
+lines(x = t, y = log(t75), lwd = 4, col="grey10")
+```
+
+Now, the total activation $B_i$ is simply the sum of all the traces $t_1, t_2 ... t_N$:
+
+```{r, fig.width = 6, fig.height = 4}
+plot(x = t, y = log(t0), lwd = 4, col="grey75", main = "Activation over time", type = "l", ylab = ylab, xlab = xlab, ylim=c(-1, 1.5))
+grid()
+
+lines(x = t, y = log(t20), lwd = 4, col="grey50")
+lines(x = t, y = log(t70), lwd = 4, col="grey25")
+lines(x = t, y = log(t75), lwd = 4, col="grey10")
+lines(x = t, y = log(t0 + t20 + t70 + t75), lwd = 2, lty=5, col="red")
+```
+
+## Efficient approximation
+
+The efficient approximation to $B_i$, or $B'_i$ is calculated as 
+
+$B'_i = \log (\frac{n}{1-2}) - d \times \log(t - t_0)$
+
+Where $t_0$ is the time at which the chunk $i$ was created. 
+
+```{r, fig.width = 6, fig.height = 4}
+plot(x = t, y = log(t0), lwd = 4, col="grey75", main = "Activation over time", type = "l", ylab = ylab, xlab = xlab, ylim=c(-1, 1.5))
+grid()
+
+lines(x = t, y = log(t20), lwd = 4, col="grey50")
+lines(x = t, y = log(t70), lwd = 4, col="grey25")
+lines(x = t, y = log(t75), lwd = 4, col="grey10")
+lines(x = t, y = log(t0 + t20 + t70 + t75), lwd = 2, lty=5, col="red")
+
+# Efficient approximation
+# -----------------------
+ol <- log(4 / (1 - d)) - d * log(t)  
+lines(x = t, y = ol, lwd = 2, lty=5, col="orange")
+```
+
+With memory effect B0
+
+```{r, fig.width = 6, fig.height = 4}
+
+V1 <- 10
+V2 <- 5
+V3 <- 2
+V4 <- 1.5
+
+plot(x = t, y = log(t0), lwd = 4, col="white", main = "Activation over time", type = "l", ylab = ylab, xlab = xlab, ylim=c(-1, 2))
+grid()
+
+lines(x = t, y = log(t0 + t20 + t70 + t75), lwd = 2, lty=5, col="black")
+
+lines(x = t, y = log(t0 + t20 + t70 + t75 + log(V2)), lwd = 2, lty=1, col="red")
+
+lines(x = t, y = log(t0 + t20 + t70 + t75 + log(V1)), lwd = 2, lty=1, col="orange")
+
+lines(x = t, y = log(t0 + t20 + t70 + t75 + log(V3)), lwd = 2, lty=1, col="purple")
+
+lines(x = t, y = log(t0 + t20 + t70 + t75 + log(V4)), lwd = 2, lty=1, col="blue")
+
+```
+
+With decaying traumatic intensity of memory
+
+```{r, fig.width = 6, fig.height = 4}
+
+V1 <- 10
+V2 <- 5
+
+plot(x = t, y = log(t0), lwd = 4, col="white", main = "Activation over time", type = "l", ylab = ylab, xlab = xlab, ylim=c(-1, 2))
+grid()
+
+lines(x = t, y = log(t0 + t20 + t70 + t75), lwd = 2, lty=5, col="black")
+
+lines(x = t, y = log(t0 + t20 + t70 + t75 + log(V2)), lwd = 2, lty=1, col="red")
+
+lines(x = t, y = log(t0 + t20 + t70 + t75 + log(V1)), lwd = 2, lty=1, col="orange")
+
+lines(x = t, y = log(t0 + t20 + t70 + t75 + log(V2)/(t/10)), lwd = 2, lty=1, col="purple")
+
+lines(x = t, y = log(t0 + t20 + t70 + t75 + log(V1)/(t/10)), lwd = 2, lty=1, col="blue")
+
+```

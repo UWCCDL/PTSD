@@ -1,14 +1,9 @@
 ;;; Lisp model for PTSD
 
-(defparameter *traumatic-event-time* (* 60 60 24 365 20)
-  "A traumatic memory is generated at age 20 exatcly") 
-
-(defun activation-hook (chunk mod)
-  "Hook for the activation function---adds emotional value V to activation"
-  nil)
 
 ;;; Simulated agent life
 
+#|
 (defun life ()
   (loop-until-end
 	 (generate-new-context)
@@ -17,16 +12,32 @@
 	 (set-new context)
 	 (set-goal)
 	 (set-new-update))
+|#
 
 ;;; Memory-based behavioral control
 
+
+(clear-all)
+
+(define-model ptsd1
+
+(sgp :esc t)
+	
+;;; DECLARATIVE KNOWLEDGE
+
+(add-dm (memory1 f1 a f2 b f3 c f4 c)
+		(memory2 f1 a f2 b f3 c f4 c)
+		(task processed no))
+	
+;;; PROC KNOWLEDGE
 (p retrieve
    "Retrieves an appropriate chunk to respond to the current context"
    =goal>
      processed no
+   
    ?retrieval>
-     Buffer empty
-	 State free
+     buffer empty
+	 state free
 ==>
    +retrieval>
 )
@@ -35,6 +46,7 @@
    "Use the retrieved memory to respond approrpriately to the current context"
    =goal>
      processed no
+   
    ?retrieval>
      buffer full
 	 state free
@@ -50,6 +62,7 @@
    "Catches retrieval errors"
    =goal>
      processed no
+   
    ?retrieval>
      buffer empty
 	 state error
@@ -59,4 +72,8 @@
    -retrieval>
    -visual>
    -imaginal>
+)
+
+(goal-focus task)
+
 )
