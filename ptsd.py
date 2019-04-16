@@ -2,7 +2,7 @@
 
 # A theory of PTSD form a declarative memory standpoint
 
-import random
+import random as rnd
 import actr
 
 def random_memory_generator(mem_num, num_chunks, num_slots):
@@ -15,7 +15,7 @@ def random_memory_generator(mem_num, num_chunks, num_slots):
         slots=[]
         name=['memory' + str(mem_num + 1) + "_" + str(i + 1)]
         for j in range(num_slots):
-            random_attribute = choice(attributes)
+            random_attribute = rnd.choice(attributes)
             slots+=['slot' + str(j + 1), str(random_attribute)]
         memory+=[name+slots]
         memories+=memory
@@ -34,7 +34,7 @@ def add_memories(mem_num, num, num_slots):
 #traumatic event occurs at a random time over the range of life_time
 
 life_time=10
-event_time=randrange(0,life_time,1)
+event_time=rnd.randrange(0,life_time,1)
 
 #add memories from that decade to act-r
 
