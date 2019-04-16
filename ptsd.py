@@ -42,7 +42,7 @@ event_time=rnd.randrange(0,life_time,1)
 
 for t in range(life_time):
   if t==event_time:
-    #this memory is assigned a high V
+    #all memories at this time point are assigned a high V
     v_val=10
     add_memories(t, num, slots, v_val)
 else:
