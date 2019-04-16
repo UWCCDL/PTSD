@@ -5,7 +5,7 @@
 import random as rnd
 import actr
 
-def random_memory_generator(mem_num, num_chunks, num_slots):
+def random_memory_generator(mem_num, num_chunks, num_slots, v_val):
     memories = []
     name = []
     attributes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
@@ -17,30 +17,35 @@ def random_memory_generator(mem_num, num_chunks, num_slots):
         for j in range(num_slots):
             random_attribute = rnd.choice(attributes)
             slots+=['slot' + str(j + 1), str(random_attribute)]
-        memory+=[name+slots]
+        V=['V', v_val]
+        memory+=[name + slots + V]
         memories+=memory
-
     return memories
 
-def add_memories(mem_num, num, num_slots):
+def add_memories(mem_num, num, num_slots, v_val):
     """Adds NUM memories to the model"""
-    memories = random_memory_generator(mem_num, num, num_slots)
+    memories = random_memory_generator(mem_num, num, num_slots, v_val)
     for m in memories:
         actr.add_dm(m)
 
 #actr.add_dm(["memory3", "f1", "a", "f2", "b"])
 
-#push random memory set into act-r over the "life time". 1=10 years
-#traumatic event occurs at a random time over the range of life_time
+#push random memories from the simulated life time to act-r
 
-life_time=10
+life_time=10 #number of time points in simulated life time
+num=2 #number of chunks per memory at a time point
+slots=3 #slots per chunk
+
+#traumatic event occurs at a random time point in simulated life time
 event_time=rnd.randrange(0,life_time,1)
 
-#add memories from that decade to act-r
 
 for t in range(life_time):
   if t==event_time:
     #this memory is assigned a high V
-    add_memories(t, 1, 5)
-  else:
-    add_memories(t, 1, 5)
+    v_val=10
+    add_memories(t, num, slots, v_val)
+else:
+    #all other memories assigned a random low V
+    v_val=rnd.uniform(0,2)
+    add_memories(t, num, slots, v_val)
