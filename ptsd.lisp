@@ -21,14 +21,33 @@
 
 (define-model ptsd1
 
-(sgp :esc t)
-	
+(sgp :esc t
+     :er t)
+
+(chunk-type task processed)
+
 ;;; DECLARATIVE KNOWLEDGE
 
-(add-dm (memory1 f1 a f2 b f3 c f4 c)
-		(memory2 f1 a f2 b f3 c f4 c)
-		(task processed no))
-	
+;(add-dm (memory1 f1 a f2 b f3 c f4 c)
+;		(memory2 f1 a f2 b f3 c f4 c)
+;		(task processed no))
+
+(add-dm (yes) (no))
+
+(p face-situation
+   "Realizes a new situation is present, and sets a goal to process it"
+   ?goal>
+     state free
+     buffer empty
+   ?imaginal>
+     state free
+     buffer full
+==>
+   +goal>
+     isa task
+     processed no
+)
+
 ;;; PROC KNOWLEDGE
 (p retrieve
    "Retrieves an appropriate chunk to respond to the current context"
@@ -54,7 +73,6 @@
    =goal>
       processed yes
    -retrieval>
-   -visual>
    -imaginal>
 )
 
@@ -67,13 +85,23 @@
      buffer empty
 	 state error
 ==>
-   =goal>
+   *goal>
      processed yes
    -retrieval>
-   -visual>
    -imaginal>
 )
 
-(goal-focus task)
+(p solved
+   "Pops the goal"
+   =goal>
+     processed yes
+   
+   ?goal>
+     state free  
+==>
+   -goal>
+)
+
+;(goal-focus task)
 
 )

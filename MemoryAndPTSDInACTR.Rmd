@@ -17,7 +17,7 @@ $B_i = \sum_j \log (t_i^{-d})$
 
 First, we create two variables:
 
-1. `d`, corresponding to the decay rate $d$, set toan (arbitrary) value of $d = 0.5$ 
+1. `d`, corresponding to the decay rate $d$, set to an (arbitrary) value of $d = 0.5$ 
 2. `t`, a time of 2 minutes (120 seconds) sampled at 10 Hz.
 
 ```{r}
