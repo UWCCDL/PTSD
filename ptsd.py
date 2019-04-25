@@ -71,7 +71,10 @@ def present_new_situation():
 
 
 def simulation(max_time=10):
-    actr.load_act_r_model("ptsd.lisp")
+    actr.reset()
+    # current directory
+    curr_dir = os.path.dirname(os.path.realpath(__file__))
+    actr.load_act_r_model(os.path.join(curr_dir, "ptsd.lisp"))
     while actr.mp_time() < max_time:
         present_new_situation()
         actr.run(100)
