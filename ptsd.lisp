@@ -89,6 +89,7 @@
      processed yes
    -retrieval>
    -imaginal>
+   !stop!
 )
 
 (p solved
@@ -100,6 +101,7 @@
      state free  
 ==>
    -goal>
+   !stop!
 )
 
 ;(goal-focus task)
