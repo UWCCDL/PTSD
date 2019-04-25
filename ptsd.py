@@ -25,14 +25,15 @@ def random_memory_generator(mem_num=None,
         memory = []
         slots = []
         name = []
-        if mem_num is not None: 
+        if mem_num is not None:
             name = ['memory' + str(mem_num + 1) + "_" + str(i + 1)]
-            
+
         for j in range(num_slots):
             random_attribute = rnd.choice(attributes)
             slots+=['slot' + str(j + 1), str(random_attribute)]
-            
+
         V = ['V', v_val]   # The emotional value
+        v_val=rnd.uniform(0,2)
         memory += [name + slots + V]
         memories += memory
     return memories
@@ -61,9 +62,9 @@ def life(life_time = life_time):
         else:
             #all other memories assigned a random low V
             v_val=rnd.uniform(0,2)
-    add_memories(t, num, slots, v_val)
+            add_memories(t, num, slots, v_val)
 
-    
+
 def present_new_situation():
     """Creates a new situation for the model"""
     newdef = random_memory_generator()[0]
@@ -79,6 +80,3 @@ def simulation(max_time=10):
     while actr.mp_time() < max_time:
         present_new_situation()
         actr.run(100)
-
-    
-    
