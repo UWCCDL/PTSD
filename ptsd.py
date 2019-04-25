@@ -4,6 +4,7 @@
 
 import random as rnd
 import actr
+import os
 
 # Variables
 life_time = 10 #number of time points in simulated life time
