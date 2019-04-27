@@ -3,6 +3,7 @@
 # A theory of PTSD form a declarative memory standpoint
 
 import random as rnd
+import numpy as np
 import actr
 import os
 
@@ -39,7 +40,7 @@ def random_memory_generator(mem_num=None,
             v = v_val
             
         V = ['V', v]   # The emotional value
-        memory += [name + slots + V]
+        memory += [name + ['kind', 'memory'] + slots + V]
         memories += memory
     return memories
 
@@ -48,10 +49,6 @@ def add_memories(mem_num, num, num_slots, v_val):
     memories = random_memory_generator(mem_num, num, num_slots, v_val)
     for m in memories:
         actr.add_dm(m)
-
-#actr.add_dm(["memory3", "f1", "a", "f2", "b"])
-
-#push random memories from the simulated life time to act-r
 
 
 #traumatic event occurs at a random time point in simulated life time
@@ -76,9 +73,39 @@ def present_new_situation():
     newchunk = actr.define_chunks(newdef)[0]
     actr.set_buffer_chunk("imaginal", newchunk)
 
+def v_offset(chunk):
+    """Calculates the V-term for the given chunk"""
+    np.log(1 + actr.chunk_slot_value(chunk, "V"))
 
+    
+def sji_calculation(chunk1, chunk2):
+    """
+Calculates the association between two chunks
+(association defined as similarity
+    """
+    return 0.0
+
+
+def monitor_retrievals(chunk):
+    """Keeps track of retrievals"""
+    if chunk is not None:
+        v = actr.chunk_slot_value(chunk, "V")
+        if v is not None:
+            print("---> %.3f" % v)
+            return v
+            
+    
 def simulation(model="ptsd.lisp", max_time=10):
-    actr.reset()
+    #actr.reset()
+
+    # Add commands and hooks
+    actr.add_command("v_offset", v_offset,
+                     "Extra term in activation")
+    actr.add_command("sji_calculation", sji_calculation,
+                     "Overrides normal strength of association")
+    actr.add_command("monitor_retrievals", monitor_retrievals,
+                     "Monotors what is being retrieved")
+    
     # Makes sure we are loading the current model from
     # the current directory
     curr_dir = os.path.dirname(os.path.realpath(__file__))
@@ -89,3 +116,7 @@ def simulation(model="ptsd.lisp", max_time=10):
     while actr.mp_time() < max_time:
         present_new_situation()
         actr.run(100)
+
+    actr.remove_command("v_offset")
+    actr.remove_command("sji_calculation")
+    actr.remove_command("monitor_retrievals")
