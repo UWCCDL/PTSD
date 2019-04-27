@@ -15,7 +15,7 @@ slots = 3 #slots per chunk
 def random_memory_generator(mem_num=None,
                             num_chunks=num,
                             num_slots=slots,
-                            v_val=rnd.uniform(0,2)):
+                            v_val=None):
     """Generates random chunks (slot/attribute pairs)"""
     memories = []
     name = []
@@ -32,8 +32,13 @@ def random_memory_generator(mem_num=None,
             random_attribute = rnd.choice(attributes)
             slots+=['slot' + str(j + 1), str(random_attribute)]
 
-        V = ['V', v_val]   # The emotional value
-        v_val=rnd.uniform(0,2)
+
+        if v_val is None:
+            v = rnd.uniform(0,2)
+        else:
+            v = v_val
+            
+        V = ['V', v]   # The emotional value
         memory += [name + slots + V]
         memories += memory
     return memories
@@ -72,11 +77,15 @@ def present_new_situation():
     actr.set_buffer_chunk("imaginal", newchunk)
 
 
-def simulation(max_time=10):
+def simulation(model="ptsd.lisp", max_time=10):
     actr.reset()
-    # current directory
+    # Makes sure we are loading the current model from
+    # the current directory
     curr_dir = os.path.dirname(os.path.realpath(__file__))
     actr.load_act_r_model(os.path.join(curr_dir, "ptsd.lisp"))
+    
+    # Run a life simulation
+
     while actr.mp_time() < max_time:
         present_new_situation()
         actr.run(100)

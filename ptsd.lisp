@@ -3,19 +3,6 @@
 
 ;;; Simulated agent life
 
-#|
-(defun life ()
-  (loop-until-end
-	 (generate-new-context)
-	 (when (time = target)
-	   (insert traumatic Q0))
-	 (set-new context)
-	 (set-goal)
-	 (set-new-update))
-|#
-
-;;; Memory-based behavioral control
-
 
 (clear-all)
 
@@ -28,10 +15,6 @@
 
 ;;; DECLARATIVE KNOWLEDGE
 
-;(add-dm (memory1 f1 a f2 b f3 c f4 c)
-;		(memory2 f1 a f2 b f3 c f4 c)
-;		(task processed no))
-
 (add-dm (yes) (no))
 
 (p face-situation
@@ -39,6 +22,7 @@
    ?goal>
      state free
      buffer empty
+
    ?imaginal>
      state free
      buffer full
@@ -103,7 +87,5 @@
    -goal>
    !stop!
 )
-
-;(goal-focus task)
 
 )
