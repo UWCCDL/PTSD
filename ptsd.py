@@ -67,11 +67,11 @@ def life(life_time = life_time):
             add_memories(t, num, slots, v_val)
 
 
-def present_new_situation():
-    """Creates a new situation for the model"""
+def present_new_situation(where="imaginal"):
+    """Creates a new situation for the model and presents to the WHERE buffer"""
     newdef = random_memory_generator()[0]
     newchunk = actr.define_chunks(newdef)[0]
-    actr.set_buffer_chunk("imaginal", newchunk)
+    actr.set_buffer_chunk(where, newchunk)
 
 def v_offset(chunk):
     """Calculates the V-term for the given chunk"""
@@ -81,8 +81,9 @@ def v_offset(chunk):
 def sji_calculation(chunk1, chunk2):
     """
 Calculates the association between two chunks
-(association defined as similarity
+(association defined as similarity between chunks)
     """
+    print(">>> From %s to %s" % (chunk1, chunk2))
     return 0.0
 
 
@@ -95,7 +96,7 @@ def monitor_retrievals(chunk):
             return v
             
     
-def simulation(model="ptsd.lisp", max_time=10):
+def simulation(model="ptsd.lisp", max_time=100, event_step=20):
     #actr.reset()
 
     # Add commands and hooks
@@ -105,18 +106,25 @@ def simulation(model="ptsd.lisp", max_time=10):
                      "Overrides normal strength of association")
     actr.add_command("monitor_retrievals", monitor_retrievals,
                      "Monotors what is being retrieved")
+
+    actr.add_command("next", present_new_situation,
+                     "Presents a new situation")
     
     # Makes sure we are loading the current model from
     # the current directory
     curr_dir = os.path.dirname(os.path.realpath(__file__))
-    actr.load_act_r_model(os.path.join(curr_dir, "ptsd.lisp"))
+    actr.load_act_r_model(os.path.join(curr_dir, model))
     
     # Run a life simulation
 
+    event_time = 0.0
+    
     while actr.mp_time() < max_time:
-        present_new_situation()
-        actr.run(100)
-
+        actr.schedule_event(event_time, "next")
+        event_time += event_step
+        actr.run(event_step)
+        
+    actr.remove_command("next")
     actr.remove_command("v_offset")
     actr.remove_command("sji_calculation")
     actr.remove_command("monitor_retrievals")
