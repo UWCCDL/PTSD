@@ -20,7 +20,7 @@ def random_memory_generator(mem_num=None,
     """Generates random chunks (slot/attribute pairs)"""
     memories = []
     name = []
-    attributes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+    attributes = ['a', 'b']#, 'c']#, 'd', 'e', 'f', 'g']
     a = len(attributes)
     for i in range(num_chunks):
         memory = []
@@ -39,8 +39,8 @@ def random_memory_generator(mem_num=None,
         else:
             v = v_val
             
-        V = ['V', v]   # The emotional value
-        memory += [name + ['kind', 'memory'] + slots + V]
+        #V = ['V', v]   # The emotional value
+        memory += [name + ['kind', 'memory'] + slots]# + V]
         memories += memory
     return memories
 
@@ -54,30 +54,23 @@ def add_memories(mem_num, num, num_slots, v_val):
 #traumatic event occurs at a random time point in simulated life time
 event_time=rnd.randrange(0, life_time, 1)
 
-def life(life_time = life_time):
-    """Abstract life function"""
-    for t in range(life_time):
-        if t == event_time:
-            #all memories at this time point are assigned a high V
-            v_val=10
-            add_memories(t, num, slots, v_val)
-        else:
-            #all other memories assigned a random low V
-            v_val=rnd.uniform(0,2)
-            add_memories(t, num, slots, v_val)
-
 
 def present_new_situation(where="imaginal"):
     """Creates a new situation for the model and presents to the WHERE buffer"""
     newdef = random_memory_generator()[0]
     newchunk = actr.define_chunks(newdef)[0]
     actr.set_buffer_chunk(where, newchunk)
-    actr.dm()
+    #actr.dm()
 
     
 def v_offset(chunk):
     """Calculates the V-term for the given chunk"""
-    np.log(1 + actr.chunk_slot_value(chunk, "V"))
+    global TABLE
+    if chunk in TABLE.keys():
+        #return np.log(1 + actr.chunk_slot_value(chunk, "V"))
+        return np.log(1 + TABLE[chunk])
+    else:
+        return 0.0
 
 
 SLOTS = tuple("SLOT" + "%d" % (x + 1,) for x in range(10))
@@ -94,11 +87,11 @@ def sji_calculation(chunk1, chunk2):
 Calculates the association between two chunks
 (association defined as similarity between chunks)
     """
-    if (chunk1 != chunk2):
+    if (chunk1 != "zumpa"): #chunk2):
         kind1 = actr.chunk_slot_value(chunk1, "KIND")
         kind2 = actr.chunk_slot_value(chunk2, "KIND")
-        print(">>> From %s to %s" % (chunk1, chunk2))
-        print(">>> Kinds (%s, %s) " % (kind1, kind2))
+        #print(">>> From %s to %s" % (chunk1, chunk2))
+        #print(">>> Kinds (%s, %s) " % (kind1, kind2))
         
         if (kind1.upper() == "MEMORY" and kind2.upper() == "MEMORY"):
             v1 = vectorize_memory(chunk1)
@@ -108,6 +101,8 @@ Calculates the association between two chunks
                 sim = np.sum([1 if (v1[j] == v2[j]) else 0 for j in range(N) ])/N
                 
                 print(">>> S(%s, %s) = %.3f " % (v1, v2, sim))
+                if sim == 1:
+                    print("------> YEAH <------ (%s, %s)" % (chunk1, chunk2)) 
                 return sim
 
 
@@ -129,6 +124,9 @@ def keep_table(chunk):
 def simulation(model="ptsd.lisp", max_time=100, event_step=20):
     #actr.reset()
 
+    global TABLE
+    TABLE = {} # Reset memory
+    
     # Add commands and hooks
     actr.add_command("v_offset", v_offset,
                      "Extra term in activation")
