@@ -19,11 +19,12 @@
 
      ;; Adds V term for base-level activation 
      :activation-offsets "v_offset"
+     :chunk-add-hook "keep_table"
 
      ;; Similarity-based metric
      :sji-hook "sji_calculation"
 
-     ;; Monotor responses
+     ;; Monitor responses
      :retrieved-chunk-hook "monitor_retrievals"
      )
 

@@ -72,19 +72,43 @@ def present_new_situation(where="imaginal"):
     newdef = random_memory_generator()[0]
     newchunk = actr.define_chunks(newdef)[0]
     actr.set_buffer_chunk(where, newchunk)
+    actr.dm()
 
+    
 def v_offset(chunk):
     """Calculates the V-term for the given chunk"""
     np.log(1 + actr.chunk_slot_value(chunk, "V"))
 
+
+SLOTS = tuple("SLOT" + "%d" % (x + 1,) for x in range(10))
+
+
+def vectorize_memory(chunk):
+    """Returns a vector representation of a chunk"""
+    values = [actr.chunk_slot_value(chunk, slot) for slot in SLOTS]
+    return tuple([x for x in values if x is not None])
+    
     
 def sji_calculation(chunk1, chunk2):
     """
 Calculates the association between two chunks
 (association defined as similarity between chunks)
     """
-    print(">>> From %s to %s" % (chunk1, chunk2))
-    return 0.0
+    if (chunk1 != chunk2):
+        kind1 = actr.chunk_slot_value(chunk1, "KIND")
+        kind2 = actr.chunk_slot_value(chunk2, "KIND")
+        print(">>> From %s to %s" % (chunk1, chunk2))
+        print(">>> Kinds (%s, %s) " % (kind1, kind2))
+        
+        if (kind1.upper() == "MEMORY" and kind2.upper() == "MEMORY"):
+            v1 = vectorize_memory(chunk1)
+            v2 = vectorize_memory(chunk2)
+            if (len(v1) == len(v2)):
+                N = len(v1)
+                sim = np.sum([1 if (v1[j] == v2[j]) else 0 for j in range(N) ])/N
+                
+                print(">>> S(%s, %s) = %.3f " % (v1, v2, sim))
+                return sim
 
 
 def monitor_retrievals(chunk):
@@ -94,8 +118,14 @@ def monitor_retrievals(chunk):
         if v is not None:
             print("---> %.3f" % v)
             return v
-            
-    
+
+TABLE = {}
+        
+def keep_table(chunk):
+    global TABLE
+    TABLE[chunk] = rnd.uniform(0,2)
+
+
 def simulation(model="ptsd.lisp", max_time=100, event_step=20):
     #actr.reset()
 
@@ -109,6 +139,9 @@ def simulation(model="ptsd.lisp", max_time=100, event_step=20):
 
     actr.add_command("next", present_new_situation,
                      "Presents a new situation")
+
+    ## Experimental
+    actr.add_command("keep_table", keep_table)
     
     # Makes sure we are loading the current model from
     # the current directory
@@ -122,8 +155,10 @@ def simulation(model="ptsd.lisp", max_time=100, event_step=20):
     while actr.mp_time() < max_time:
         actr.schedule_event(event_time, "next")
         event_time += event_step
-        actr.run(event_step)
-        
+        actr.run(event_step) # No need to run beyond the event step
+
+    # Clean-up
+    
     actr.remove_command("next")
     actr.remove_command("v_offset")
     actr.remove_command("sji_calculation")
