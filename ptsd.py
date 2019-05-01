@@ -6,6 +6,7 @@ import random as rnd
 import numpy as np
 import actr
 import os
+import string
 
 # Variables
 life_time = 10 #number of time points in simulated life time
@@ -37,17 +38,12 @@ def random_memory_generator(mem_num=None,
             random_attribute = rnd.choice(attributes)
             slots+=['slot' + str(j + 1), str(random_attribute)]
 
-
-        #if v_val is None:
-        #    v = rnd.uniform(0,2)
-        #else:
-        #    v = v_val
-            
-        #V = ['V', v]   # The emotional value
         T = ['traumatic', 'no']
+
         if traumatic:
             T = ['traumatic', 'yes']
-        memory += [name + ['kind', 'memory'] + slots + T]# + V]
+
+        memory += [name + ['isa', 'memory', 'kind', 'memory'] + slots + T]# + V]
         memories += memory
     return memories
 
@@ -126,30 +122,6 @@ def spreading_function(chunk):
             return sim * w
         
 
-def sji_calculation(chunk1, chunk2):
-    """
-Calculates the association between two chunks
-(association defined as similarity between chunks)
-    """
-    if (chunk1 != "zumpa"): #chunk2):
-        kind1 = actr.chunk_slot_value(chunk1, "KIND")
-        kind2 = actr.chunk_slot_value(chunk2, "KIND")
-        #print(">>> From %s to %s" % (chunk1, chunk2))
-        #print(">>> Kinds (%s, %s) " % (kind1, kind2))
-        
-        if (kind1.upper() == "MEMORY" and kind2.upper() == "MEMORY"):
-            v1 = vectorize_memory(chunk1)
-            v2 = vectorize_memory(chunk2)
-            if (len(v1) == len(v2)):
-                N = len(v1)
-                sim = np.sum([1 if (v1[j] == v2[j]) else 0 for j in range(N) ])/N
-                
-                #print(">>> S(%s, %s) = %.3f " % (v1, v2, sim))
-                if sim == 1:
-                    print("------> YEAH <------ (%s, %s)" % (chunk1, chunk2)) 
-                return sim
-
-
 def monitor_retrievals(chunk):
     """Keeps track of retrievals"""
     global TABLE
@@ -180,24 +152,28 @@ def keep_table(chunk):
 def simulation(model="ptsd.lisp", max_time=50000, event_step=600):
     #actr.reset()
 
-    global TABLE
-    TABLE = {} # Reset memory
+    #global TABLE
+    #TABLE = {} # Reset memory
     
     # Add commands and hooks
     actr.add_command("v_offset", v_offset,
                      "Extra term in activation")
-    actr.add_command("sji_calculation", sji_calculation,
-                     "Overrides normal strength of association")
+
+    #actr.add_command("sji_calculation", sji_calculation,
+    #                 "Overrides normal strength of association")
+
     actr.add_command("spreading", spreading_function,
                      "Overrides normal spreading activation algorithm")
+
     actr.add_command("monitor_retrievals", monitor_retrievals,
                      "Monotors what is being retrieved")
 
     actr.add_command("next", present_new_situation,
                      "Presents a new situation")
 
-    ## Experimental
     actr.add_command("keep_table", keep_table)
+
+    actr.hide_output()
     
     # Makes sure we are loading the current model from
     # the current directory
@@ -205,6 +181,7 @@ def simulation(model="ptsd.lisp", max_time=50000, event_step=600):
     actr.load_act_r_model(os.path.join(curr_dir, model))
 
     actr.set_parameter_value(":V", False)
+    actr.set_parameter_value(":cmdt", False)
     
     # Run a life simulation
 
@@ -219,10 +196,10 @@ def simulation(model="ptsd.lisp", max_time=50000, event_step=600):
     
     actr.remove_command("next")
     actr.remove_command("v_offset")
-    actr.remove_command("sji_calculation")
+    #actr.remove_command("sji_calculation")
     actr.remove_command("spreading")
     actr.remove_command("monitor_retrievals")
-
+    actr.resume_output()
 
 def meta(V=[2, 4, 6, 8, 10, 12, 14], n= 100):
     """"Simulates a lot!!"""
@@ -238,3 +215,5 @@ def meta(V=[2, 4, 6, 8, 10, 12, 14], n= 100):
         
 
     np.savetxt("sims.txt", TRACE, sep=",", header="Run,V_Traumatic,Time,V,Similarity")
+
+
