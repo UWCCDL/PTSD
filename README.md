@@ -20,23 +20,19 @@ How do we assign an emotional value to chunks? We can imagine V values being nor
 
 The environment simulates the life of an agent. We simulate about 15 years of memories, with the idea that a retrieval happens about  X an hour, 16 hours a day, 365 days for 15 years, that is, X*87,600.
 Over these 87,600 retrievals, memories are created.
-This is a simple function:
+This is a simple function in pseudocode
 
-```lisp
-(defun life ()
-  (loop-until-end
-	 (generate-new-context)
-	 (when (time = target)
-	   (insert traumatic Q0))
-	 (set-new context)
-	 (set-goal)
-	 (set-new-update))
+```python
+def life ()
+  while actr.mp_time() < end:
+	 if time = PTET:
+        present_new_situation(traumatic = True)
+     else:
+        present_new_situation(traumatic = False)
 ```
 
-## Implementation details
+The model responds to any new situatiobn by retrieving the past situation that best matches the current one. 
 
-How many cues are present? And how big is each chunk?
-We need to measure chunk size. We can start with very small chunk contexts, maybe 5-10 cues.
 
 ## Emotional valence
 
@@ -85,34 +81,22 @@ The first two terms have been extensively discussed in the context of ACT-R. In 
 
 The third term is the topic of this paper. Specifically, we will show that  for events that have an very high emotional costs, such as traumatic events, the additional term can result in catastrophic runoff. This is due to the peculiar interaction between memory and environment: When items are retrieved, they become more likely to be retrieved in the future. This positive feedback loop is typically kept at bay by the contextual factor, which favor elements based on co-occurrence. When the third factor V overtakes both, it generates two contextual effects: First, it leads to dominate the base-level probabilities. Second, it tends to generate even stronger associations with other cues, thus contaminating them and eventually taking over the contextual factor as well. Both of these mechanisms are known, under different names, in the field. Furthermore, this model provides an explanation of why certain treatments work, and why other fail.
 
-## Representation
+# Usage
 
-Memory is represented as a database of individual memories. The
-database is simply a list.
+The model is controlled by the ACT-R Python interface. To start a model, simply import the `ptsd` module:
 
-Memories are contentless.
+```python
+import ptsd
+```
 
-New memories are created at a fixed rate, and inserted into the list.
+A single simulation can be run with the `simulation` command:
 
-Memories are created within a context made of individual cues
-q1... qN.
+```python
+ptsd.simulation(max_time=40000)
+```
 
-Cues are also contentless. A limited number of N cues is available.
+Multiple simulation can be run with the `meta` command. The `meta` command has multiple parameters, but, in essence `V` is a list of possible values for the _V_-value of the traumatic event; `fname` is the name of a file onto which to save the traces; and `n` is the number of simulations. For example:
 
-Only a subset M < N of cues is available at any point in time, forming
-the context in which a memory is retrieved.
-
-Cues change over time; at any point in time, cues are slowly changed.
-
-The number of cues that are changed is drawn from a gamma
-distribution.
-
-It would likely be smart to initialize memories and cues-memory
-associations randomly at the beginning.
-
-Learning
---------
-When created, memories are simply put into the list.
-
-Every time a meory 
-
+```python
+ptsd.meta(V=[2,5,10,15], n=100, fname="mysims.txt")
+```

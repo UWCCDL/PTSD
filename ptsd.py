@@ -167,8 +167,6 @@ def simulation(model="ptsd.lisp", max_time=50000, event_step=600):
 
     actr.add_command("keep_table", keep_table)
 
-    #actr.hide_output()
-    
     # Makes sure we are loading the current model from
     # the current directory
     curr_dir = os.path.dirname(os.path.realpath(__file__))
@@ -195,15 +193,16 @@ def simulation(model="ptsd.lisp", max_time=50000, event_step=600):
     actr.remove_command("keep_table")
     #actr.resume_output()
 
-def meta(V=[2, 4, 6, 8, 10, 12, 14], n=20):
+def meta(V=[2, 4, 6, 8, 10, 12, 14], n=20, fname="sims.txt"):
     """"Simulates a lot!!"""
     global COUNTER
     global TABLE
     global TRAUMATIC_V
     for v in V:
-        print("V = %.2f: " % v)
+        print("V = %.2f: " % v, end="")
         for j in range(n):
-            print(">> %d" % (j+1,))
+            if (j % 5) == 0.0:
+                print(".", end="")
             TABLE = {}
             TRAUMATIC_V = v
             simulation(max_time=40000)
@@ -212,8 +211,9 @@ def meta(V=[2, 4, 6, 8, 10, 12, 14], n=20):
         print("")
                             
 
-    np.savetxt("sims_2.txt", TRACE,
-               delimiter=",", header="Run,V_Traumatic,Time,V,Similarity")
+    np.savetxt(fname, TRACE,
+               delimiter=",",
+               header="Run,V_Traumatic,Time,V,Similarity")
 
 ## ---------------------------------------------------------------- ##
 ## Object-oriented version (much cleaner)
@@ -221,9 +221,23 @@ def meta(V=[2, 4, 6, 8, 10, 12, 14], n=20):
 
 class PTSD_Object:
     SLOT_VALUES = tuple(x for x in string.ascii_letters[-26:])
+    SLOTS = tuple("SLOT" + "%d" % (x + 1,) for x in range(10))
+    def vectorize_memory(self, chunk):
+        """Returns a vector representation of a chunk"""
+        values = [actr.chunk_slot_value(chunk, slot) for slot in self.SLOTS]
+        return tuple([x for x in values if x is not None])
+    
+    def chunk_similarity(self, chunk1, chunk2):
+        """Calculates the similarity between two chunks"""
+        v1 = vectorize_memory(chunk1)
+        v2 = vectorize_memory(chunk2)
+        if (len(v1) == len(v2)):
+            N = len(v1)
+            return np.sum([1 if (v1[j] == v2[j]) else 0 for j in range(N) ])/N
     
 
 class Simulation(PTSD_Object):
+    """An object that creates simulations"""
     def __init__(self, model = "ptsd.lisp",
                  Vs = [1, 5, 10, 15, 20],
                  n = 100):
@@ -234,10 +248,11 @@ class Simulation(PTSD_Object):
         self.model = model
         self.max_time = 50000
         self.event_step = 600
+        self.counter = 0
         self.V_TABLE = {}
         self.TRACE = []
 
-    def present_new_situation(where="imaginal"):
+    def present_new_situation(self, where="imaginal"):
         """Creates a new situation for the model and presents to the WHERE buffer"""
         if actr.mp_time() == self.PTET:
             newdef = random_memory_generator(traumatic=True)[0]
@@ -248,13 +263,14 @@ class Simulation(PTSD_Object):
         actr.set_buffer_chunk(where, newchunk)
 
     
-    def chunk_v_term(chunk):
+    def chunk_v_term(self, chunk):
         """Calculates the V-term for the given chunk"""
         if chunk in self.V_TABLE.keys():
             return 0.001 + np.log(self.V_TABLE[chunk])
         else:
             return 0.0
 
+        
     def add_chunk(self, chunk):
         """Adds a chunk to the V Table and generates a V value for it"""
         if (actr.chunk_slot_value(chunk, "kind") == "MEMORY"):
@@ -263,24 +279,57 @@ class Simulation(PTSD_Object):
             elif actr.chunk_slot_value(chunk, "traumatic") == "YES":
                 self.V_TABLE[chunk] = self.PTEV
 
-    
+
+    def spreading_activation(self, chunk):
+        """Calculates spreading activation from imaginal"""
+        source = actr.buffer_chunk("imaginal")
+        if len(source) > 0:
+            source = source[0] 
+            if (chunk != source):
+                kind1 = actr.chunk_slot_value(source, "KIND")
+                kind2 = actr.chunk_slot_value(chunk, "KIND")
+        
+                if (kind1.upper() == "MEMORY" and kind2.upper() == "MEMORY"):
+                    v1 = vectorize_memory(source)
+                    v2 = vectorize_memory(chunk)
+                    sim = self.chunk_similarity(source, chunk)
+                    w = actr.get_parameter_value(":imaginal-activation")
+
+                    if w is None:
+                        w = 0.0
+            
+                return sim * w
+
+
+    def monitor_retrievals(self, chunk):
+        """Keeps track of what is being retrieved and why"""
+        v = 0.0
+        s = 0.0
+
+        if chunk is not None and \
+           actr.chunk_slot_value(chunk, "kind") == "MEMORY":
+            source = actr.buffer_chunk("imaginal")[0]
+            v = self.V_TABLE[chunk]
+            s = self.chunk_similarity(chunk, source)
+            self.TRACE.append([self.counter, self.PTEV, actr.mp_time(), v, s])
+            
     def simulation(self):
         #actr.reset()
 
         # Add commands and hooks
-        actr.add_command("v_offset", chunk_v_term,
+        actr.add_command("v_offset", self.chunk_v_term,
                          "Extra term in activation")
 
-        actr.add_command("spreading", spreading_function,
+        actr.add_command("spreading", self.spreading_activation,
                          "Overrides normal spreading activation algorithm")
 
-        actr.add_command("monitor_retrievals", monitor_retrievals,
+        actr.add_command("monitor_retrievals", self.monitor_retrievals,
                          "Monitors what is being retrieved")
 
-        actr.add_command("next", present_new_situation,
+        actr.add_command("next", self.present_new_situation,
                          "Presents a new situation")
         
-        actr.add_command("keep_table", add_chunk)
+        actr.add_command("keep_table", self.add_chunk)
     
         # Makes sure we are loading the current model from
         # the current directory
@@ -288,6 +337,7 @@ class Simulation(PTSD_Object):
         actr.load_act_r_model(os.path.join(curr_dir, self.model))
 
         actr.set_parameter_value(":V", False)
+        actr.set_parameter_value(":cmdt", False)
     
         # Run a life simulation
 
@@ -303,6 +353,7 @@ class Simulation(PTSD_Object):
         actr.remove_command("next")
         actr.remove_command("v_offset")
         actr.remove_command("spreading")
+        actr.remove_command("keep_table")
         actr.remove_command("monitor_retrievals")
 
     
