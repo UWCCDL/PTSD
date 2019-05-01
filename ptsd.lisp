@@ -19,9 +19,12 @@
 
      ;; Adds V term for base-level activation 
      :activation-offsets "v_offset"
-
+     :chunk-add-hook "keep_table"
+     :ans 0.6
+     
      ;; Similarity-based metric
-     :sji-hook "sji_calculation"
+     ;;:sji-hook "sji_calculation"
+     :spreading-hook "spreading"
 
      ;; Monotor responses
      :retrieved-chunk-hook "monitor_retrievals"
@@ -31,7 +34,7 @@
 
 (chunk-type memory kind slot1 slot2 slot3
             slot4 slot5 slot6 slot7 slot8
-            slot9 slot10 V)
+            slot9 slot10 traumatic)
 
 (chunk-type situation kind value) 
 

@@ -10,17 +10,21 @@ import os
 # Variables
 life_time = 10 #number of time points in simulated life time
 num = 2 #number of chunks per memory at a time point
-slots = 3 #slots per chunk
+slots = 5 #slots per chunk
 
+PTE_TIME = 600*30
+TRACE = []
+TRAUMATIC_V = 10
+COUNTER = 1
 
 def random_memory_generator(mem_num=None,
                             num_chunks=num,
                             num_slots=slots,
-                            v_val=None):
+                            traumatic=False):
     """Generates random chunks (slot/attribute pairs)"""
     memories = []
     name = []
-    attributes = ['a', 'b']#, 'c']#, 'd', 'e', 'f', 'g']
+    attributes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
     a = len(attributes)
     for i in range(num_chunks):
         memory = []
@@ -34,13 +38,16 @@ def random_memory_generator(mem_num=None,
             slots+=['slot' + str(j + 1), str(random_attribute)]
 
 
-        if v_val is None:
-            v = rnd.uniform(0,2)
-        else:
-            v = v_val
+        #if v_val is None:
+        #    v = rnd.uniform(0,2)
+        #else:
+        #    v = v_val
             
         #V = ['V', v]   # The emotional value
-        memory += [name + ['kind', 'memory'] + slots]# + V]
+        T = ['traumatic', 'no']
+        if traumatic:
+            T = ['traumatic', 'yes']
+        memory += [name + ['kind', 'memory'] + slots + T]# + V]
         memories += memory
     return memories
 
@@ -57,7 +64,12 @@ event_time=rnd.randrange(0, life_time, 1)
 
 def present_new_situation(where="imaginal"):
     """Creates a new situation for the model and presents to the WHERE buffer"""
+    global PTE_TIME
     newdef = random_memory_generator()[0]
+    if actr.mp_time() == PTE_TIME:
+        print("**** PTE ****")
+        newdef = random_memory_generator(traumatic=True)[0]
+        
     newchunk = actr.define_chunks(newdef)[0]
     actr.set_buffer_chunk(where, newchunk)
     #actr.dm()
@@ -68,6 +80,7 @@ def v_offset(chunk):
     global TABLE
     if chunk in TABLE.keys():
         #return np.log(1 + actr.chunk_slot_value(chunk, "V"))
+        print("Adding %.3f" % TABLE[chunk])
         return np.log(1 + TABLE[chunk])
     else:
         return 0.0
@@ -80,8 +93,39 @@ def vectorize_memory(chunk):
     """Returns a vector representation of a chunk"""
     values = [actr.chunk_slot_value(chunk, slot) for slot in SLOTS]
     return tuple([x for x in values if x is not None])
-    
-    
+
+def chunk_similarity(chunk1, chunk2):
+    v1 = vectorize_memory(chunk1)
+    v2 = vectorize_memory(chunk2)
+    sim = 0.0
+    if (len(v1) == len(v2)):
+        N = len(v1)
+        return np.sum([1 if (v1[j] == v2[j]) else 0 for j in range(N) ])/N
+        
+
+def spreading_function(chunk):
+    """Calculates spreading activation from imaginal"""
+    source = actr.buffer_chunk("imaginal")
+    if len(source) > 0:
+        source = source[0] 
+    if (chunk != source):
+        kind1 = actr.chunk_slot_value(source, "KIND")
+        kind2 = actr.chunk_slot_value(chunk, "KIND")
+        #print(">>> From %s to %s" % (chunk1, chunk2))
+        #print(">>> Kinds (%s, %s) " % (kind1, kind2))
+        
+        if (kind1.upper() == "MEMORY" and kind2.upper() == "MEMORY"):
+            v1 = vectorize_memory(source)
+            v2 = vectorize_memory(chunk)
+            sim = chunk_similarity(source, chunk)
+            w = actr.get_parameter_value(":imaginal-activation")
+
+            if w is None:
+                w = 0.0
+            
+            return sim * w
+        
+
 def sji_calculation(chunk1, chunk2):
     """
 Calculates the association between two chunks
@@ -100,7 +144,7 @@ Calculates the association between two chunks
                 N = len(v1)
                 sim = np.sum([1 if (v1[j] == v2[j]) else 0 for j in range(N) ])/N
                 
-                print(">>> S(%s, %s) = %.3f " % (v1, v2, sim))
+                #print(">>> S(%s, %s) = %.3f " % (v1, v2, sim))
                 if sim == 1:
                     print("------> YEAH <------ (%s, %s)" % (chunk1, chunk2)) 
                 return sim
@@ -108,20 +152,32 @@ Calculates the association between two chunks
 
 def monitor_retrievals(chunk):
     """Keeps track of retrievals"""
-    if chunk is not None:
-        v = actr.chunk_slot_value(chunk, "V")
-        if v is not None:
-            print("---> %.3f" % v)
-            return v
+    global TABLE
+    global TRACE
+    global COUNTER
+    global TRAUMATIC_V
+    v = 0.0
+    s = 0.0
+    if chunk is not None and actr.chunk_slot_value(chunk, "kind") == "MEMORY":
+        source = actr.buffer_chunk("imaginal")[0]
+        v = TABLE[chunk]
+        s = chunk_similarity(chunk, source)
+    TRACE.append([COUNTER, TRAUMATIC_V, actr.mp_time(), v, s])
+         
 
 TABLE = {}
         
 def keep_table(chunk):
     global TABLE
-    TABLE[chunk] = rnd.uniform(0,2)
+    global TRAUMATIC_V
+    if (actr.chunk_slot_value(chunk, "kind") == "MEMORY"):
+        if actr.chunk_slot_value(chunk, "traumatic") == "NO":
+            TABLE[chunk] = rnd.uniform(0,2)
+        elif actr.chunk_slot_value(chunk, "traumatic") == "YES":
+            TABLE[chunk] = TRAUMATIC_V
 
 
-def simulation(model="ptsd.lisp", max_time=100, event_step=20):
+def simulation(model="ptsd.lisp", max_time=50000, event_step=600):
     #actr.reset()
 
     global TABLE
@@ -132,6 +188,8 @@ def simulation(model="ptsd.lisp", max_time=100, event_step=20):
                      "Extra term in activation")
     actr.add_command("sji_calculation", sji_calculation,
                      "Overrides normal strength of association")
+    actr.add_command("spreading", spreading_function,
+                     "Overrides normal spreading activation algorithm")
     actr.add_command("monitor_retrievals", monitor_retrievals,
                      "Monotors what is being retrieved")
 
@@ -145,6 +203,8 @@ def simulation(model="ptsd.lisp", max_time=100, event_step=20):
     # the current directory
     curr_dir = os.path.dirname(os.path.realpath(__file__))
     actr.load_act_r_model(os.path.join(curr_dir, model))
+
+    actr.set_parameter_value(":V", False)
     
     # Run a life simulation
 
@@ -160,4 +220,21 @@ def simulation(model="ptsd.lisp", max_time=100, event_step=20):
     actr.remove_command("next")
     actr.remove_command("v_offset")
     actr.remove_command("sji_calculation")
+    actr.remove_command("spreading")
     actr.remove_command("monitor_retrievals")
+
+
+def meta(V=[2, 4, 6, 8, 10, 12, 14], n= 100):
+    """"Simulates a lot!!"""
+    global COUNTER
+    global TABLE
+    global TRAUMATIC_V
+    for v in V:
+        for j in range(n):
+            TABLE = {}
+            TRAUMATIC_V = v
+            simulation(max_time=40000)
+            COUNTER += 1
+        
+
+    np.savetxt("sims.txt", TRACE, sep=",", header="Run,V_Traumatic,Time,V,Similarity")
