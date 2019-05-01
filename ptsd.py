@@ -6,6 +6,7 @@ import random as rnd
 import numpy as np
 import actr
 import os
+import sys
 import string
 
 # Variables
@@ -55,7 +56,7 @@ def add_memories(mem_num, num, num_slots, v_val):
 
 
 #traumatic event occurs at a random time point in simulated life time
-event_time=rnd.randrange(0, life_time, 1)
+#event_time=rnd.randrange(0, life_time, 1)
 
 
 def present_new_situation(where="imaginal"):
@@ -63,20 +64,18 @@ def present_new_situation(where="imaginal"):
     global PTE_TIME
     newdef = random_memory_generator()[0]
     if actr.mp_time() == PTE_TIME:
-        print("**** PTE ****")
+        #print("**** PTE ****")
         newdef = random_memory_generator(traumatic=True)[0]
         
     newchunk = actr.define_chunks(newdef)[0]
     actr.set_buffer_chunk(where, newchunk)
-    #actr.dm()
 
     
 def v_offset(chunk):
     """Calculates the V-term for the given chunk"""
     global TABLE
     if chunk in TABLE.keys():
-        #return np.log(1 + actr.chunk_slot_value(chunk, "V"))
-        print("Adding %.3f" % TABLE[chunk])
+        #print("Adding %.3f" % TABLE[chunk])
         return np.log(1 + TABLE[chunk])
     else:
         return 0.0
@@ -107,8 +106,6 @@ def spreading_function(chunk):
     if (chunk != source):
         kind1 = actr.chunk_slot_value(source, "KIND")
         kind2 = actr.chunk_slot_value(chunk, "KIND")
-        #print(">>> From %s to %s" % (chunk1, chunk2))
-        #print(">>> Kinds (%s, %s) " % (kind1, kind2))
         
         if (kind1.upper() == "MEMORY" and kind2.upper() == "MEMORY"):
             v1 = vectorize_memory(source)
@@ -153,14 +150,11 @@ def simulation(model="ptsd.lisp", max_time=50000, event_step=600):
     #actr.reset()
 
     #global TABLE
-    #TABLE = {} # Reset memory
+    TABLE = {} # Reset memory
     
     # Add commands and hooks
     actr.add_command("v_offset", v_offset,
                      "Extra term in activation")
-
-    #actr.add_command("sji_calculation", sji_calculation,
-    #                 "Overrides normal strength of association")
 
     actr.add_command("spreading", spreading_function,
                      "Overrides normal spreading activation algorithm")
@@ -173,7 +167,7 @@ def simulation(model="ptsd.lisp", max_time=50000, event_step=600):
 
     actr.add_command("keep_table", keep_table)
 
-    actr.hide_output()
+    #actr.hide_output()
     
     # Makes sure we are loading the current model from
     # the current directory
@@ -196,24 +190,120 @@ def simulation(model="ptsd.lisp", max_time=50000, event_step=600):
     
     actr.remove_command("next")
     actr.remove_command("v_offset")
-    #actr.remove_command("sji_calculation")
     actr.remove_command("spreading")
     actr.remove_command("monitor_retrievals")
-    actr.resume_output()
+    actr.remove_command("keep_table")
+    #actr.resume_output()
 
-def meta(V=[2, 4, 6, 8, 10, 12, 14], n= 100):
+def meta(V=[2, 4, 6, 8, 10, 12, 14], n=20):
     """"Simulates a lot!!"""
     global COUNTER
     global TABLE
     global TRAUMATIC_V
     for v in V:
+        print("V = %.2f: " % v)
         for j in range(n):
+            print(">> %d" % (j+1,))
             TABLE = {}
             TRAUMATIC_V = v
             simulation(max_time=40000)
             COUNTER += 1
+            sys.stdout.flush()
+        print("")
+                            
+
+    np.savetxt("sims_2.txt", TRACE,
+               delimiter=",", header="Run,V_Traumatic,Time,V,Similarity")
+
+## ---------------------------------------------------------------- ##
+## Object-oriented version (much cleaner)
+## ---------------------------------------------------------------- ##
+
+class PTSD_Object:
+    SLOT_VALUES = tuple(x for x in string.ascii_letters[-26:])
+    
+
+class Simulation(PTSD_Object):
+    def __init__(self, model = "ptsd.lisp",
+                 Vs = [1, 5, 10, 15, 20],
+                 n = 100):
+        self.n = n
+        self.Vs = Vs
+        self.PTEV = 10 # Peritraumatic Event Value
+        self.PTET = 600 * 30  # Peritraumatic Event Time 
+        self.model = model
+        self.max_time = 50000
+        self.event_step = 600
+        self.V_TABLE = {}
+        self.TRACE = []
+
+    def present_new_situation(where="imaginal"):
+        """Creates a new situation for the model and presents to the WHERE buffer"""
+        if actr.mp_time() == self.PTET:
+            newdef = random_memory_generator(traumatic=True)[0]
+        else:
+            newdef = random_memory_generator(traumatic=False)[0]
+         
+        newchunk = actr.define_chunks(newdef)[0]
+        actr.set_buffer_chunk(where, newchunk)
+
+    
+    def chunk_v_term(chunk):
+        """Calculates the V-term for the given chunk"""
+        if chunk in self.V_TABLE.keys():
+            return 0.001 + np.log(self.V_TABLE[chunk])
+        else:
+            return 0.0
+
+    def add_chunk(self, chunk):
+        """Adds a chunk to the V Table and generates a V value for it"""
+        if (actr.chunk_slot_value(chunk, "kind") == "MEMORY"):
+            if actr.chunk_slot_value(chunk, "traumatic") == "NO":
+                self.V_TABLE[chunk] = rnd.uniform(0,2)
+            elif actr.chunk_slot_value(chunk, "traumatic") == "YES":
+                self.V_TABLE[chunk] = self.PTEV
+
+    
+    def simulation(self):
+        #actr.reset()
+
+        # Add commands and hooks
+        actr.add_command("v_offset", chunk_v_term,
+                         "Extra term in activation")
+
+        actr.add_command("spreading", spreading_function,
+                         "Overrides normal spreading activation algorithm")
+
+        actr.add_command("monitor_retrievals", monitor_retrievals,
+                         "Monitors what is being retrieved")
+
+        actr.add_command("next", present_new_situation,
+                         "Presents a new situation")
         
+        actr.add_command("keep_table", add_chunk)
+    
+        # Makes sure we are loading the current model from
+        # the current directory
+        curr_dir = os.path.dirname(os.path.realpath(__file__))
+        actr.load_act_r_model(os.path.join(curr_dir, self.model))
 
-    np.savetxt("sims.txt", TRACE, sep=",", header="Run,V_Traumatic,Time,V,Similarity")
+        actr.set_parameter_value(":V", False)
+    
+        # Run a life simulation
 
+        event_time = 0.0
+        
+        while actr.mp_time() < self.max_time:
+            actr.schedule_event(event_time, "next")
+            event_time += self.event_step
+            actr.run(self.event_step) # No need to run beyond the event step
+
+        # Clean-up
+    
+        actr.remove_command("next")
+        actr.remove_command("v_offset")
+        actr.remove_command("spreading")
+        actr.remove_command("monitor_retrievals")
+
+    
 
