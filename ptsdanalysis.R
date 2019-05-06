@@ -1,4 +1,4 @@
-library(matlab)
+#library(matlab)
 data <- read.csv("sims_3.txt")
 
 names(data)[1] <- "Run"
