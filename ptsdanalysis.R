@@ -5,7 +5,7 @@ names(data)[1] <- "Run"
 
 data$Time <- round(data$Time/100)
 
-data <-subset(data, data$Time < 410)
+#data <-subset(data, data$Time < 410)
 
 data$Block<-round(data$Time/25, 0)
 
