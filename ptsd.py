@@ -13,6 +13,7 @@ import string
 life_time = 10 #number of time points in simulated life time
 num = 2 #number of chunks per memory at a time point
 slots = 5 #slots per chunk
+num_traumatic_attributes=3 #number of unique traumatic attributes within traumatic memory
 
 PTE_TIME = 600*30
 TRACE = []
@@ -26,8 +27,7 @@ def random_memory_generator(mem_num=None,
     """Generates random chunks (slot/attribute pairs)"""
     memories = []
     name = []
-    attributes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
-    a = len(attributes)
+
     for i in range(num_chunks):
         memory = []
         slots = []
@@ -36,12 +36,25 @@ def random_memory_generator(mem_num=None,
             name = ['memory' + str(mem_num + 1) + "_" + str(i + 1)]
 
         for j in range(num_slots):
+            attributes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
             random_attribute = rnd.choice(attributes)
             slots+=['slot' + str(j + 1), str(random_attribute)]
 
         T = ['traumatic', 'no']
 
         if traumatic:
+""" Unique memory is created with some number of traumatic_attributes (defined above with variables) """
+            for j in range(num_traumatic_attributes):
+                traumatic_attributes = ['z', 'y', 'x', 'w', 'u', 't', 's']
+                random_attribute = rnd.choice(traumatic_attributes)
+                slots+=['slot' + str(j + 1), str(random_attribute)]
+
+            for j in range(num_slots-num_traumatic_attributes):
+                attributes=['a', 'b', 'c', 'd', 'e', 'f', 'g']
+                random_attribute=rnd.choice(attributes)
+
+                slots+=['slot'+str(j+1+num_traumatic_attributes), str(random_attribute)]
+
             T = ['traumatic', 'yes']
 
         memory += [name + ['isa', 'memory', 'kind', 'memory'] + slots + T]# + V]
