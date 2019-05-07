@@ -43,7 +43,7 @@ def random_memory_generator(mem_num=None,
         T = ['traumatic', 'no']
 
         if traumatic:
-""" Unique memory is created with some number of traumatic_attributes (defined above with variables) """
+            """ Unique memory is created with some number of traumatic_attributes (defined above with variables) """
             for j in range(num_traumatic_attributes):
                 traumatic_attributes = ['z', 'y', 'x', 'w', 'u', 't', 's']
                 random_attribute = rnd.choice(traumatic_attributes)
