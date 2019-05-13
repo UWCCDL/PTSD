@@ -13,7 +13,7 @@ import string
 life_time = 10 #number of time points in simulated life time
 num = 2 #number of chunks per memory at a time point
 slots = 5 #slots per chunk
-num_traumatic_attributes=3 #number of unique traumatic attributes within traumatic memory
+num_traumatic_attributes=2 #number of unique traumatic attributes within traumatic memory
 
 PTE_TIME = 600*30
 TRACE = []
