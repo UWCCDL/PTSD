@@ -61,6 +61,7 @@ def random_memory_generator(mem_num=None,
         memories += memory
     return memories
 
+
 def add_memories(mem_num, num, num_slots, v_val):
     """Adds NUM memories to the model"""
     memories = random_memory_generator(mem_num, num, num_slots, v_val)
@@ -233,15 +234,23 @@ def meta(V=[2, 4, 6, 8, 10, 12, 14], n=20, fname="sims.txt"):
 ## ---------------------------------------------------------------- ##
 
 class PTSD_Object:
-    SLOT_VALUES = tuple(x for x in string.ascii_letters[-26:])
-    SLOTS = tuple("SLOT" + "%d" % (x + 1,) for x in range(10))
+    SLOT_VALUES = tuple(x for x in string.ascii_letters[-26:-16])
+    TRAUMATIC_SLOT_VALUES = tuple(x for x in string.ascii_letters[-10:])
+    SLOTS_NAMES = tuple("SLOT" + "%d" % (x + 1,) for x in range(10))
+
+    
     def vectorize_memory(self, chunk):
         """Returns a vector representation of a chunk"""
         values = [actr.chunk_slot_value(chunk, slot) for slot in self.SLOTS]
         return tuple([x for x in values if x is not None])
 
+    
     def chunk_similarity(self, chunk1, chunk2):
-        """Calculates the similarity between two chunks"""
+        """
+Calculates the similarity between two chunks. Currently, similarity i
+is defined as the number of all attributes that are identical (same 
+value, same position) normalized by the total number of slots. 
+        """
         v1 = vectorize_memory(chunk1)
         v2 = vectorize_memory(chunk2)
         if (len(v1) == len(v2)):
@@ -250,21 +259,22 @@ class PTSD_Object:
 
 
 class Simulation(PTSD_Object):
-    """An object that creates simulations"""
+    """An object that runs, manages, and stores simulations"""
     def __init__(self, model = "ptsd.lisp",
                  Vs = [1, 5, 10, 15, 20],
                  n = 100):
         self.n = n
         self.Vs = Vs
-        self.PTEV = 10 # Peritraumatic Event Value
-        self.PTET = 600 * 30  # Peritraumatic Event Time
         self.model = model
-        self.max_time = 50000
-        self.event_step = 600
+        self.PTEV = 10        # Peri-Traumatic Event Value
+        self.PTET = 600 * 30  # Peri-Traumatic Event Time
+        self.max_time = 50000 
+        self.event_step = 600 # Interval between events to be experienced
         self.counter = 0
         self.V_TABLE = {}
         self.TRACE = []
 
+        
     def present_new_situation(self, where="imaginal"):
         """Creates a new situation for the model and presents to the WHERE buffer"""
         if actr.mp_time() == self.PTET:
@@ -326,6 +336,7 @@ class Simulation(PTSD_Object):
             s = self.chunk_similarity(chunk, source)
             self.TRACE.append([self.counter, self.PTEV, actr.mp_time(), v, s])
 
+            
     def simulation(self):
         #actr.reset()
 
@@ -368,3 +379,7 @@ class Simulation(PTSD_Object):
         actr.remove_command("spreading")
         actr.remove_command("keep_table")
         actr.remove_command("monitor_retrievals")
+
+        # Update counter
+
+        self.counter += 1
