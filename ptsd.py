@@ -53,7 +53,7 @@ def random_memory_generator(mem_num=None,
             #    attributes=['a', 'b', 'c', 'd', 'e', 'f', 'g']
             #    random_attribute=rnd.choice(attributes)
 
-                slots+=['slot'+str(j+1+num_traumatic_attributes), str(random_attribute)]
+            #    slots+=['slot'+str(j+1+num_traumatic_attributes), str(random_attribute)]
 
             T = ['traumatic', 'yes']
 
