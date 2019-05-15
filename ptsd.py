@@ -13,7 +13,7 @@ import string
 life_time = 10 #number of time points in simulated life time
 num = 2 #number of chunks per memory at a time point
 slots = 5 #slots per chunk
-num_traumatic_attributes=2 #number of unique traumatic attributes within traumatic memory
+#num_traumatic_attributes=5 #number of unique traumatic attributes within traumatic memory
 
 PTE_TIME = 600*30
 TRACE = []
@@ -43,15 +43,15 @@ def random_memory_generator(mem_num=None,
         T = ['traumatic', 'no']
 
         if traumatic:
-            """ Unique memory is created with some number of traumatic_attributes (defined above with variables) """
-            for j in range(num_traumatic_attributes):
+            """ Unique memory is created with traumatic_attributes """
+            for j in range(num_slots):
                 traumatic_attributes = ['z', 'y', 'x', 'w', 'u', 't', 's']
                 random_attribute = rnd.choice(traumatic_attributes)
                 slots+=['slot' + str(j + 1), str(random_attribute)]
 
-            for j in range(num_slots-num_traumatic_attributes):
-                attributes=['a', 'b', 'c', 'd', 'e', 'f', 'g']
-                random_attribute=rnd.choice(attributes)
+            #for j in range(num_slots-num_traumatic_attributes):
+            #    attributes=['a', 'b', 'c', 'd', 'e', 'f', 'g']
+            #    random_attribute=rnd.choice(attributes)
 
                 slots+=['slot'+str(j+1+num_traumatic_attributes), str(random_attribute)]
 
@@ -238,18 +238,18 @@ class PTSD_Object:
     TRAUMATIC_SLOT_VALUES = tuple(x for x in string.ascii_letters[-10:])
     SLOTS_NAMES = tuple("SLOT" + "%d" % (x + 1,) for x in range(10))
 
-    
+
     def vectorize_memory(self, chunk):
         """Returns a vector representation of a chunk"""
         values = [actr.chunk_slot_value(chunk, slot) for slot in self.SLOTS]
         return tuple([x for x in values if x is not None])
 
-    
+
     def chunk_similarity(self, chunk1, chunk2):
         """
 Calculates the similarity between two chunks. Currently, similarity i
-is defined as the number of all attributes that are identical (same 
-value, same position) normalized by the total number of slots. 
+is defined as the number of all attributes that are identical (same
+value, same position) normalized by the total number of slots.
         """
         v1 = vectorize_memory(chunk1)
         v2 = vectorize_memory(chunk2)
@@ -268,13 +268,13 @@ class Simulation(PTSD_Object):
         self.model = model
         self.PTEV = 10        # Peri-Traumatic Event Value
         self.PTET = 600 * 30  # Peri-Traumatic Event Time
-        self.max_time = 50000 
+        self.max_time = 50000
         self.event_step = 600 # Interval between events to be experienced
         self.counter = 0
         self.V_TABLE = {}
         self.TRACE = []
 
-        
+
     def present_new_situation(self, where="imaginal"):
         """Creates a new situation for the model and presents to the WHERE buffer"""
         if actr.mp_time() == self.PTET:
@@ -336,7 +336,7 @@ class Simulation(PTSD_Object):
             s = self.chunk_similarity(chunk, source)
             self.TRACE.append([self.counter, self.PTEV, actr.mp_time(), v, s])
 
-            
+
     def simulation(self):
         #actr.reset()
 
