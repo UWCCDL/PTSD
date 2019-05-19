@@ -247,15 +247,17 @@ class PTSD_Object:
 
     def chunk_similarity(self, chunk1, chunk2):
         """
-Calculates the similarity between two chunks. Currently, similarity i
-is defined as the number of all attributes that are identical (same
-value, same position) normalized by the total number of slots.
+        Calculates the similarity between two chunks. Currently, 
+        similarity is defined as the number of all attributes that 
+        are identical (same value, same position) between two chunks,
+        normalized by the total number of slots.
         """
         v1 = vectorize_memory(chunk1)
         v2 = vectorize_memory(chunk2)
-        if (len(v1) == len(v2)):
+        if len(v1) == len(v2):
             N = len(v1)
-            return np.sum([1 if (v1[j] == v2[j]) else 0 for j in range(N) ])/N
+            return np.sum([1 if (v1[j] == v2[j]) else 0 \
+                           for j in range(N) ]) / N
 
 
 class Simulation(PTSD_Object):
@@ -268,13 +270,20 @@ class Simulation(PTSD_Object):
         self.model = model
         self.PTEV = 10        # Peri-Traumatic Event Value
         self.PTET = 600 * 30  # Peri-Traumatic Event Time
-        self.max_time = 50000
+        self.max_time = 50000 # Max duration of a simulation
         self.event_step = 600 # Interval between events to be experienced
         self.counter = 0
         self.V_TABLE = {}
         self.TRACE = []
 
 
+    def reset(self):
+        """Resets the results of a simulation and gets ready for another"""
+        self.counter = 0
+        self.V_TABLE = {}
+        self.TRACE = []
+
+        
     def present_new_situation(self, where="imaginal"):
         """Creates a new situation for the model and presents to the WHERE buffer"""
         if actr.mp_time() == self.PTET:
@@ -326,18 +335,22 @@ class Simulation(PTSD_Object):
 
     def monitor_retrievals(self, chunk):
         """Keeps track of what is being retrieved and why"""
-        v = 0.0
-        s = 0.0
-
+        v = 0.0  # Emotional load of retrieved memory
+        s = 0.0  # Similarity of memory to current situation
+        t = 0.0  # Is the memory traumatic or not?
+        
         if chunk is not None and \
            actr.chunk_slot_value(chunk, "kind") == "MEMORY":
             source = actr.buffer_chunk("imaginal")[0]
             v = self.V_TABLE[chunk]
             s = self.chunk_similarity(chunk, source)
-            self.TRACE.append([self.counter, self.PTEV, actr.mp_time(), v, s])
+            if actr.chunk_slot_value(chunk, "traumatic") == "YES":
+                t = 1.0
+            self.TRACE.append([self.counter, self.PTEV, actr.mp_time(), v, t, s])
 
 
-    def simulation(self):
+    def simulate(self):
+        """Runs a single simulation"""
         #actr.reset()
 
         # Add commands and hooks
@@ -383,3 +396,38 @@ class Simulation(PTSD_Object):
         # Update counter
 
         self.counter += 1
+
+
+        
+    def run(self, verbose = True):
+        """Runs the simulations for all cases described in this 
+        object parameters.
+
+        Keyword arguments:
+        verbose --- If True (default), prints progress updates
+        """
+        for V in self.Vs:
+            self.PTEV = V
+            if verbose:
+                print("V = %.2f: " % V, end="")
+                
+            for j in range(self.n):
+                if verbose and (j % 5) == 0.0:
+                    print(".", end="")
+                self.simulate()
+                sys.stdout.flush()
+                
+            print("")
+       
+                
+    def save_trace(self, fname="trace.txt"):
+        """Saves the results of a series of a run of simulations
+
+        Keyword arguments:
+        fname --- Name of the file to save the data onto 
+                  (default is 'trace.txt')
+        """
+        np.savetxt(fname,
+                   self.TRACE,
+                   delimiter=",",
+                   header="Run,PTEV,Time,V,Traumatic,Similarity")
