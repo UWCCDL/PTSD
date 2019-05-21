@@ -8,111 +8,108 @@
 
 (define-model ptsd
 
-(sgp :esc t
-     :er t
-     :bll 0.5
-     :blc 1.0
-     
-     ;; Enable WM effects through spreading activation
-     :mas 10.0
-     :imaginal-activation 5.0
+ (sgp :esc t
+      :er t
+      :bll 0.5
+      :blc 1.0
 
-     ;; Adds V term for base-level activation 
-     :activation-offsets "v_offset"
-     :chunk-add-hook "keep_table"
-     :ans 0.6
-     
-     ;; Similarity-based metric
-     ;;:sji-hook "sji_calculation"
-     :spreading-hook "spreading"
+      ;; Enable WM effects through spreading activation
+      :mas 10.0
+      :imaginal-activation 5.0
 
-     ;; Monotor responses
-     :retrieved-chunk-hook "monitor_retrievals"
-     )
+      ;; Adds V term for base-level activation
+      :activation-offsets "v_offset"
+      :chunk-add-hook "keep_table"
+      :ans 0.6
 
-(chunk-type task processed)
+      ;; Similarity-based metric
+      ;;:sji-hook "sji_calculation"
+      :spreading-hook "spreading"
 
-(chunk-type memory kind slot1 slot2 slot3
-            slot4 slot5 slot6 slot7 slot8
-            slot9 slot10 traumatic)
+      ;; Monitor responses
+      :retrieved-chunk-hook "monitor_retrievals")
 
-(chunk-type situation kind value) 
+
+ (chunk-type task processed)
+
+ (chunk-type memory kind slot1 slot2 slot3
+             slot4 slot5 slot6 slot7 slot8
+             slot9 slot10 traumatic)
+
+ (chunk-type situation kind value)
 
 
 ;;; DECLARATIVE KNOWLEDGE
 
-(add-dm (a) (b) (c) (d) (e) (f) (g) (h) (i) (j) (k)
-        (yes) (no) (memory))
+ (add-dm (a) (b) (c) (d) (e) (f) (g) (h) (i) (j) (k)
+         (yes) (no) (memory))
 
-(p face-situation
-   "Realizes a new situation is present, and sets a goal to process it"
-   ?goal>
-     state free
-     buffer empty
+ (p face-situation
+    "Realizes a new situation is present, and sets a goal to process it"
+    ?goal>
+      state free
+      buffer empty
 
-   ?imaginal>
-     state free
-     buffer full
-==>
-   +goal>
-     isa task
-     processed no
-)
+    ?imaginal>
+      state free
+      buffer full
+  ==>
+    +goal>
+      isa task
+      processed no)
+
 
 ;;; PROC KNOWLEDGE
-(p retrieve
-   "Retrieves an appropriate chunk to respond to the current context"
-   =goal>
-     processed no
-   
-   ?retrieval>
-     buffer empty
-	 state free
-==>
-   +retrieval>
-     kind memory
-)
+ (p retrieve
+    "Retrieves an appropriate chunk to respond to the current context"
+    =goal>
+      processed no
 
-(p elaborate
-   "Use the retrieved memory to respond approrpriately to the current context"
-   =goal>
-     processed no
-   
-   ?retrieval>
-     buffer full
-	 state free
-==>
-   =goal>
+    ?retrieval>
+      buffer empty
+   state free
+  ==>
+    +retrieval>
+      kind memory)
+
+
+ (p elaborate
+    "Use the retrieved memory to respond appropriately to the current context"
+    =goal>
+      processed no
+
+    ?retrieval>
+      buffer full
+   state free
+  ==>
+    =goal>
+       processed yes
+    -retrieval>
+    -imaginal>)
+
+
+ (p cant-retrieve
+    "Catches retrieval errors"
+    =goal>
+      processed no
+
+    ?retrieval>
+   state error
+  ==>
+    *goal>
       processed yes
-   -retrieval>
-   -imaginal>
-)
+    -retrieval>
+    -imaginal>
+    !stop!)
 
-(p cant-retrieve
-   "Catches retrieval errors"
-   =goal>
-     processed no
-   
-   ?retrieval>
-	 state error
-==>
-   *goal>
-     processed yes
-   -retrieval>
-   -imaginal>
-   !stop!
-)
 
-(p solved
-   "Pops the goal"
-   =goal>
-     processed yes
-   
-   ?goal>
-     state free  
-==>
-   -goal>
-   !stop!
-)
+ (p solved
+    "Pops the goal"
+    =goal>
+      processed yes
 
-)
+    ?goal>
+      state free
+  ==>
+    -goal>
+    !stop!))

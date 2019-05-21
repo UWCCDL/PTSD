@@ -10,7 +10,6 @@ import sys
 import string
 
 # Variables
-life_time = 10 #number of time points in simulated life time
 num = 2 #number of chunks per memory at a time point
 slots = 5 #slots per chunk
 #num_traumatic_attributes=5 #number of unique traumatic attributes within traumatic memory
@@ -67,10 +66,6 @@ def add_memories(mem_num, num, num_slots, v_val):
     memories = random_memory_generator(mem_num, num, num_slots, v_val)
     for m in memories:
         actr.add_dm(m)
-
-
-#traumatic event occurs at a random time point in simulated life time
-#event_time=rnd.randrange(0, life_time, 1)
 
 
 def present_new_situation(where="imaginal"):
@@ -247,8 +242,8 @@ class PTSD_Object:
 
     def chunk_similarity(self, chunk1, chunk2):
         """
-        Calculates the similarity between two chunks. Currently, 
-        similarity is defined as the number of all attributes that 
+        Calculates the similarity between two chunks. Currently,
+        similarity is defined as the number of all attributes that
         are identical (same value, same position) between two chunks,
         normalized by the total number of slots.
         """
@@ -283,7 +278,7 @@ class Simulation(PTSD_Object):
         self.V_TABLE = {}
         self.TRACE = []
 
-        
+
     def present_new_situation(self, where="imaginal"):
         """Creates a new situation for the model and presents to the WHERE buffer"""
         if actr.mp_time() == self.PTET:
@@ -338,7 +333,7 @@ class Simulation(PTSD_Object):
         v = 0.0  # Emotional load of retrieved memory
         s = 0.0  # Similarity of memory to current situation
         t = 0.0  # Is the memory traumatic or not?
-        
+
         if chunk is not None and \
            actr.chunk_slot_value(chunk, "kind") == "MEMORY":
             source = actr.buffer_chunk("imaginal")[0]
@@ -398,9 +393,9 @@ class Simulation(PTSD_Object):
         self.counter += 1
 
 
-        
+
     def run(self, verbose = True):
-        """Runs the simulations for all cases described in this 
+        """Runs the simulations for all cases described in this
         object parameters.
 
         Keyword arguments:
@@ -410,21 +405,21 @@ class Simulation(PTSD_Object):
             self.PTEV = V
             if verbose:
                 print("V = %.2f: " % V, end="")
-                
+
             for j in range(self.n):
                 if verbose and (j % 5) == 0.0:
                     print(".", end="")
                 self.simulate()
                 sys.stdout.flush()
-                
+
             print("")
-       
-                
+
+
     def save_trace(self, fname="trace.txt"):
         """Saves the results of a series of a run of simulations
 
         Keyword arguments:
-        fname --- Name of the file to save the data onto 
+        fname --- Name of the file to save the data onto
                   (default is 'trace.txt')
         """
         np.savetxt(fname,
