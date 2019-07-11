@@ -232,7 +232,7 @@ class PTSD_Object:
     SLOT_VALUES = tuple(x for x in string.ascii_letters[-26:-16])
     TRAUMATIC_SLOT_VALUES = tuple(x for x in string.ascii_letters[-10:])
     SLOTS_NAMES = tuple("SLOT" + "%d" % (x + 1,) for x in range(10))
-
+        
 
     def vectorize_memory(self, chunk):
         """Returns a vector representation of a chunk"""
@@ -263,14 +263,19 @@ class Simulation(PTSD_Object):
         self.n = n
         self.Vs = Vs
         self.model = model
-        self.PTEV = 10        # Peri-Traumatic Event Value
-        self.PTET = 600 * 30  # Peri-Traumatic Event Time
+        self.PTEV = 10        # Potentially Traumatic Event Value
+        self.PTET = 600 * 30  # Potentially Traumatic Event Time
         self.max_time = 50000 # Max duration of a simulation
         self.event_step = 600 # Interval between events to be experienced
         self.counter = 0
+        self.s = 0.0
         self.V_TABLE = {}
         self.TRACE = []
 
+
+    def generate_random_memory(self, traumatic=False):
+        """Generates a random memory"""
+        pass
 
     def reset(self):
         """Resets the results of a simulation and gets ready for another"""
