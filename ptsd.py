@@ -42,7 +42,7 @@ class PTSD_Object:
 
 
 class Simulation(PTSD_Object):
-    """An object that runs, manages, and stores simulations"""
+    """An object that runs, manages, and stores the results of simulations"""
     def __init__(self, model = "ptsd.lisp",
                  Vs = [1, 5, 10, 15, 20],
                  n = 100):
