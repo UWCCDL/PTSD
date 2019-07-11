@@ -17,12 +17,12 @@ import string
 class PTSD_Object:
     SLOT_VALUES = tuple(x for x in string.ascii_letters[-26:-16])
     TRAUMATIC_SLOT_VALUES = tuple(x for x in string.ascii_letters[-10:])
-    SLOTS_NAMES = tuple("SLOT" + "%d" % (x + 1,) for x in range(10))
+    SLOT_NAMES = tuple("SLOT" + "%d" % (x + 1,) for x in range(10))
         
 
     def vectorize_memory(self, chunk):
         """Returns a vector representation of a chunk"""
-        values = [actr.chunk_slot_value(chunk, slot) for slot in self.SLOTS]
+        values = [actr.chunk_slot_value(chunk, slot) for slot in self.SLOT_NAMES]
         return tuple([x for x in values if x is not None])
 
 
@@ -33,8 +33,8 @@ class PTSD_Object:
         are identical (same value, same position) between two chunks,
         normalized by the total number of slots.
         """
-        v1 = vectorize_memory(chunk1)
-        v2 = vectorize_memory(chunk2)
+        v1 = self.vectorize_memory(chunk1)
+        v2 = self.vectorize_memory(chunk2)
         if len(v1) == len(v2):
             N = len(v1)
             return np.sum([1 if (v1[j] == v2[j]) else 0 \
@@ -59,7 +59,7 @@ class Simulation(PTSD_Object):
         self.V_TABLE = {}
         self.TRACE = []
 
-    def generate_rnd_memory(self, traumatic=False):
+    def generate_random_memory(self, traumatic=False):
         template = [False] * self.num_slots
         T = []
         if traumatic:
@@ -73,7 +73,7 @@ class Simulation(PTSD_Object):
             
         rnd.shuffle(template)
 
-        slots = []
+        slots = ['isa', 'memory', 'kind', 'memory']
         
         for j, slot in enumerate(template):
             if slot:
@@ -92,15 +92,15 @@ class Simulation(PTSD_Object):
         self.TRACE = []
 
 
-    def present_new_situation(self, where="imaginal"):
+    def present_new_situation(self, buffer="imaginal"):
         """Creates a new situation for the model and presents to the WHERE buffer"""
         if actr.mp_time() == self.PTET:
             newdef = self.generate_random_memory(traumatic=True)
         else:
             newdef = self.generate_random_memory(traumatic=False)
-
-        newchunk = actr.define_chunks(newdef)[0]
-        actr.set_buffer_chunk(where, newchunk)
+            
+        newchunk = actr.define_chunks(newdef[0])
+        actr.set_buffer_chunk(buffer, newchunk[0])
 
 
     def chunk_v_term(self, chunk):
@@ -125,13 +125,14 @@ class Simulation(PTSD_Object):
         source = actr.buffer_chunk("imaginal")
         if len(source) > 0:
             source = source[0]
+
             if (chunk != source):
                 kind1 = actr.chunk_slot_value(source, "KIND")
                 kind2 = actr.chunk_slot_value(chunk, "KIND")
 
                 if (kind1.upper() == "MEMORY" and kind2.upper() == "MEMORY"):
-                    v1 = vectorize_memory(source)
-                    v2 = vectorize_memory(chunk)
+                    v1 = self.vectorize_memory(source)
+                    v2 = self.vectorize_memory(chunk)
                     sim = self.chunk_similarity(source, chunk)
                     w = actr.get_parameter_value(":imaginal-activation")
 
