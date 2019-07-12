@@ -12,70 +12,6 @@ retrieval. This, in turns, leads to a positive feedback loop, leading
 the memory's activation to self-perpetuation.
 
 
-## Implementation
-
-The model is a simple perceive-retrieve-respond loop based on
-ACT-R. The model perceives a situation (represented as a chunk in
-ACT-R's `imaginal` buffer), retrieves a relevant memory, and uses the
-retrieved memory as a response. Thus, response to a new situation is a
-simple is a simple cue-based retrieval process.
-
-Specifically, when a new situation is encountered, the model sets a
-goal to process the new situation. The goal leads to initiating a
-retrieval process; when a relevant memory is retrieved, the goal is
-accompolished and marked as such.
-
-At fixed intervals of time, new situations are encountered.
-
-All new situations eventually become episodic memories, and end up in
-the long term memory store.
-
-## Intrusive memories
-
-Chunks becomes intrusive memories because they “take over” the retrieval process.
-
-How do we assign an emotional value to chunks? We can imagine V values being normally distributed with a small variation---most things are neither good nor bad. Traumatic events are incredibly bad, so they have high emotional value. The sign, in many ways, does not matter.
-
-The environment simulates the life of an agent. We simulate about 15 years of memories, with the idea that a retrieval happens about  X an hour, 16 hours a day, 365 days for 15 years, that is, X*87,600.
-Over these 87,600 retrievals, memories are created.
-This is a simple function in pseudocode
-
-```python
-def life ()
-  while actr.mp_time() < end:
-	 if time = PTET:
-        present_new_situation(traumatic = True)
-     else:
-        present_new_situation(traumatic = False)
-```
-
-The model responds to any new situatiobn by retrieving the past situation that best matches the current one. 
-
-## Emotional valence
-
-The emotional valence of each chunk is calculated as a function of its cues. Each cue has a value of V(q) ~ N(0).
-
-One cue, Q0, is defined as having an incredibly high value emotional valence V, which is fixed. In fact, all cue values are stored in a table. However, we can calculate exactly the emotional value of each chunk as the sum of the emotional valences of its cues, V(chunk) = Sum[q] V(q).
-
-## Associations
-
-In ACT-R, associations are stored in Sij values. 
-
-We can just keep two tables: One is the table of co-occurrence of memories, that is, the probability that c is needed when q is present in the context. This is simple enough to calculate.
-
-Notice that Sjis go from slot to slot… So, the slots are also cues q. In fact, our association matrix can be a 100x100 (Nq by Nq) matrix. We can keep track of associations. If they are not completely random, cues are going to co-occur and be reflected in memory.
-
-The other is the emotional association Vs. Sij has an additive term, which is the emotional nature of the chunk being retrieved. W(Sij+V).
-
-V could be just the emotional _valence_ of chunk c. This is equivalent to adding a fixed quantity.
-
-The alternative from Fum & Stocco 2004 is to use V to as associative
-links. In practice, the result is the same (activation boost), but the
-form proposed by Fum & Stocco (2004) cannot be derived from rational
-analysis. Here, we will derive a simpler form using the same rational
-analysis approach that was originally used by Anderson as the basis of
-ACT-R's equations.
-
 We can calculate the probability of retrieval of an average memory
 (sliding window) since the moment is introduced, against the
 probability of the traumatic memory.
@@ -138,27 +74,91 @@ well. Both of these mechanisms are known, under different names, in
 the field. Furthermore, this model provides an explanation of why
 certain treatments work, and why other fail.
 
+
+# Implementation
+
+The model is a simple perceive-retrieve-respond loop based on
+ACT-R. The model perceives a situation (represented as a chunk in
+ACT-R's `imaginal` buffer), retrieves a relevant memory, and uses the
+retrieved memory as a response. Thus, response to a new situation is a
+simple is a simple cue-based retrieval process.
+
+Specifically, when a new situation is encountered, the model sets a
+goal to process the new situation. The goal leads to initiating a
+retrieval process; when a relevant memory is retrieved, the goal is
+accompolished and marked as such.
+
+At fixed intervals of time, new situations are encountered.
+
+All new situations eventually become episodic memories, and end up in
+the long term memory store.
+
+## Intrusive memories
+
+Chunks becomes intrusive memories because they “take over” the
+retrieval process.
+
+How do we assign an emotional value to chunks? We can imagine V values
+being normally distributed with a small variation---most things are
+neither good nor bad. Traumatic events are incredibly bad, so they
+have high emotional value. The sign, in many ways, does not matter.
+
+The environment simulates the life of an agent. This is a simple
+function in pseudocode:
+
+```python
+def life ()
+  while actr.mp_time() < end:
+	 if time = PTET:
+        present_new_situation(traumatic = True)
+     else:
+        present_new_situation(traumatic = False)
+```
+
+The model responds to any new situatiobn by retrieving the past
+situation that best matches the current one.
+
+## Emotional valence
+
+In this implementation, the emotional valence _V_ of each chunk is stored
+in a separate table, the __V__ table. Every time a chunk _c_ is
+created, the pair <_c_, _V_(_c_)> is stored in the table. Its value
+_V_(_c_) is calculated as follows. For "normal" chunks, _V_ = 1.0 +/-
+noise. For a potentially traumatic event (PTE), it is set to a
+predefined value _PTEV_ >> 1.0.   
+
+An alternative implementation (not pursued here, but worth
+considering) is that the emotional valence of each chunk is calculated
+as a function of its cues. Each cue has a value of V(q) ~ N(0).
+
+One cue, _Q_*, is defined as having an incredibly high value emotional
+valence V, which is fixed. In this implementation, the V table
+contains only values for cues, not for chunks. This makes the
+management of __V__ tables easier. We can calculate exactly the
+emotional value of each chunk as the sum of the emotional valences of
+its cues, V(chunk) = Sum[q] V(q).
+
+## Associations
+
+In ACT-R, associations are stored in Sij values, and are supposed to
+be learned through experience. In the current implementation,
+association is purely defined by similarity: The more similar two
+chunks are, the more they are associated. To keep the
+implementation consistent with the ACT-R principle of Sji representing
+the shared contents of two chunks, the similarity between two chunks
+is calculated as the proportion of slots in which the two chunks share
+the same value.
+
+In the future, it would be helpful to learn associations. To do so, we
+could just keep two tables: One is the table of co-occurrence of
+memories, that is, the probability that c is needed when q is present
+in the context. This is simple enough to calculate.
+
+The other is the emotional association Vs. Sij has an additive term,
+which is the emotional nature of the chunk being retrieved. W(Sij+V).
+
+
 # Usage
-
-## Standard code 
-
-The model is controlled by the ACT-R Python interface. To start a model, simply import the `ptsd` module:
-
-```python
-import ptsd
-```
-
-A single simulation can be run with the `simulation` command:
-
-```python
-ptsd.simulation(max_time=40000)
-```
-
-Multiple simulation can be run with the `meta` command. The `meta` command has multiple parameters, but, in essence `V` is a list of possible values for the _V_-value of the traumatic event; `fname` is the name of a file onto which to save the traces; and `n` is the number of simulations. For example:
-
-```python
-ptsd.meta(V=[2,5,10,15], n=100, fname="mysims.txt")
-```
 
 ## Object-oriented code
 
@@ -168,12 +168,15 @@ encapsulated as a `Simulation` object. This make it possible to handle
 several simulation parameters without affecting the internal variables
 of the `ptsd` module.
 
-As before, to start a simulation, one must first load the `ptsd`
+To start a simulation, one must first load the `ptsd`
 module:
 
 ```python
 import ptsd
 ```
+
+This will automatically load the `actr.py` module and establish a
+connection, if it hasn't been done before.
 
 The next step is to then create an instance of a Simulation object:
 
@@ -204,3 +207,32 @@ of the `mysim` object. The trace can be saved to a file:
 ```python
 mysim.save_trace("mysim.txt")
 ```
+
+## Parameters
+
+The following parameters can be set for each simulation:
+
+* __PTES__ The degree of similarity between the traumatic event and
+  all the other events in memory. Similarity is controlled by
+  selecting the slot values for the PTE from a different set. If
+  similarity is 1.0, then all the slots of the PTE will come from the
+  same set of slot values as the other events. If _PTES_ = 0.0, on the
+  other hand, the slots will come from a different set.
+
+* __num_slots__ The number of slots in each chunk. These slots will be
+  named `slot1`, `slot2` ... `slotN`.
+
+* __n__: The number of runs for each combination of parameters. Must
+  be a non-negative integer.
+
+* __PTET__: The (ACT-R) time (in seconds, starting 0.0) at which the
+  PTE is scheduled to occur.
+
+* __event_step__: The distance between two consecutive situations
+  being presented to the model.
+
+* __model__: The ACT-R model to be loaded and used for the simulation.
+
+* __model_params__: A dictionary of model parameters to be set in the
+  model. These are supposed to be meaningful ACT-R parameters; no
+  check is performed on their consistency.

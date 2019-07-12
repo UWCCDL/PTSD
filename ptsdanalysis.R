@@ -11,7 +11,9 @@ data$Block<-round(data$Time/25, 0)
 
 data$Block <- data$Block - 6
 
-a <- aggregate(data[c("V", "Similarity")], list(Block=data$Block, PTEV=data$V_Traumatic), mean)
+a <- aggregate(data[c("V", "Similarity")],
+               list(Block=data$Block, PTEV=data$V_Traumatic),
+               mean)
 
 source("functions.R")
 

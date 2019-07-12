@@ -58,7 +58,28 @@ class Simulation(PTSD_Object):
         self.num_slots = 6
         self.V_TABLE = {}
         self.TRACE = []
+        self.model_params = {}
 
+
+    @property
+    def PTEV(self):
+        return self._PTEV
+
+    @PTEV.setter
+    def PTEV(self, val):
+        self._PTEV = val
+
+    @property
+    def PTES(self):
+        return self._PTES
+
+    @PTES.setter
+    def PTES(self, val):
+        if val >= 0.0 and val <= 1.0:
+            self._PTES = val
+        else:
+            self._PTES = 0.0
+            
     def generate_random_memory(self, traumatic=False):
         template = [False] * self.num_slots
         T = []
