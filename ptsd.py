@@ -313,8 +313,8 @@ class Simulation(PTSD_Object):
         """
         for v in self.PTEV:
             for s in self.PTES:
-                self.currentV = v
-                self.currentS = s
+                self._currentV = v
+                self._currentS = s
                 
                 if verbose:
                     print("V = %.2f: " % v, end="")
