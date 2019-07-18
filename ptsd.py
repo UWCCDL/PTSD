@@ -15,11 +15,7 @@ import string
 ## ---------------------------------------------------------------- ##
 
 class PTSD_Object:
-    SLOT_VALUES = tuple(x for x in string.ascii_letters[-26:-16])
-    TRAUMATIC_SLOT_VALUES = tuple(x for x in string.ascii_letters[-10:])
-    SLOT_NAMES = tuple("SLOT" + "%d" % (x + 1,) for x in range(10))
-        
-
+    
     def vectorize_memory(self, chunk):
         """Returns a vector representation of a chunk"""
         values = [actr.chunk_slot_value(chunk, slot) for slot in self.SLOT_NAMES]
@@ -56,18 +52,48 @@ class Simulation(PTSD_Object):
         self.event_step = 600 # Interval between events to be experienced
         self.counter = 0
         self.num_slots = 6
+        self.num_attributes = 6
         self.V_TABLE = {}
         self.TRACE = []
         self.model_params = {}
 
+        # Read-only params
+        self._currentV = 0.0
+        #self._slot_values = tuple(x for x in string.ascii_letters[-26:-16])
+        #self._traumatic_slot_values = tuple(x for x in string.ascii_letters[-10:])
+        #self._slot_names = tuple("SLOT" + "%d" % (x + 1,) for x in range(10))
 
+    # --- READ-ONLY PROPERTIES -------------------------------------- #
+        
+    @property
+    def currentV(self):
+        self._currentV
+
+    @property
+    def slot_values(self):
+        return self._slot_values
+
+    @property
+    def traumatic_slot_values(self):
+        return self._traumatic_slot_values
+
+    @property
+    def slot_names(self):
+        return self._slot_names
+
+    # --- READ/WRITE PROPERTIES ------------------------------------- #
+    
     @property
     def PTEV(self):
         return self._PTEV
 
     @PTEV.setter
     def PTEV(self, val):
-        self._PTEV = val
+        if type(val) in [int, float]:
+            self._PTEV = [val]
+        elif type(val) in [list, tuple]:
+            self._PTEV = val
+            
 
     @property
     def PTES(self):
@@ -75,12 +101,45 @@ class Simulation(PTSD_Object):
 
     @PTES.setter
     def PTES(self, val):
-        if val >= 0.0 and val <= 1.0:
-            self._PTES = val
-        else:
-            self._PTES = 0.0
-            
+        if type(val) in [int, float]:
+            if val >= 0.0 and val <= 1.0:
+                self._PTES = [val]
+        elif type(val) in [list, tuple]:
+            fval = [x for x in val if x >= 0.0 and x <= 1.0]
+            self._PTES = fval
+
+    @property
+    def num_slots(self):
+        """Returns the number of slots"""
+        return self._num_slots
+
+    @num_slots.setter
+    def num_slots(self, val):
+        """Sets the number of slots, and generates the internal slots names"""
+        self._num_slots = val
+        self._slot_names = tuple("SLOT" + "%d" % (x + 1,) for x in range(val))
+
+    @property
+    def num_attributes(self):
+        """Returns the number of attributes"""
+        return self._num_slots
+
+    @num_attributes.setter
+    def num_attributes(self, val):
+        """
+        Sets the number of attributes, and generates the internal set of traumatic
+        and non-traumatic admissible values for the slots.
+        """
+        self._num_slots = val
+        self._slot_values = tuple(x for x in string.ascii_lowercase[:val])
+        self._traumatic_slot_values = tuple(x for x in string.ascii_lowercase[-val:])
+        
+
+
+    # --- METHODS -------------------------------------------------- #
+        
     def generate_random_memory(self, traumatic=False):
+        """Generates a new memkory with random attributes"""
         template = [False] * self.num_slots
         T = []
         if traumatic:
@@ -98,9 +157,9 @@ class Simulation(PTSD_Object):
         
         for j, slot in enumerate(template):
             if slot:
-                random_attribute = rnd.choice(self.TRAUMATIC_SLOT_VALUES)
+                random_attribute = rnd.choice(self.traumatic_slot_values)
             else:
-                random_attribute = rnd.choice(self.SLOT_VALUES)
+                random_attribute = rnd.choice(self.slot_values)
             slots += ['slot' + str(j + 1), str(random_attribute)]
 
         return [slots + T]
@@ -138,7 +197,7 @@ class Simulation(PTSD_Object):
             if actr.chunk_slot_value(chunk, "traumatic") == "NO":
                 self.V_TABLE[chunk] = rnd.uniform(0,2)
             elif actr.chunk_slot_value(chunk, "traumatic") == "YES":
-                self.V_TABLE[chunk] = self.PTEV
+                self.V_TABLE[chunk] = self.currentV
 
 
     def spreading_activation(self, chunk):
@@ -181,8 +240,7 @@ class Simulation(PTSD_Object):
 
     def simulate(self):
         """Runs a single simulation"""
-        #actr.reset()
-
+ 
         # Add commands and hooks
         actr.add_command("v_offset", self.chunk_v_term,
                          "Extra term in activation")
@@ -236,10 +294,10 @@ class Simulation(PTSD_Object):
         Keyword arguments:
         verbose --- If True (default), prints progress updates
         """
-        for V in self.Vs:
-            self.PTEV = V
+        for v in self.PTEV:
+            self.currentV = v
             if verbose:
-                print("V = %.2f: " % V, end="")
+                print("V = %.2f: " % v, end="")
 
             for j in range(self.n):
                 if verbose and (j % 5) == 0.0:

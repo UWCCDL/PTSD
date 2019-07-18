@@ -21,7 +21,7 @@ First, we load the file produced by the most recent simulations (in this case, `
 We will load the data and fix the first column name.
 
 ```{r}
-data <- read.csv("sims_3.txt")
+data <- read.csv("mysim_09July19.txt")
 names(data)[1] <- "Run"
 ```
 
@@ -40,7 +40,9 @@ At this point, we have sufficient time points for each value of __Block__ to plo
 To keep consistent names, we will rename the ugly variable __V_Traumatic__ as __PTEV__ (for "Peritraumatic Event's _V_ Value").
 
 ```{r}
-a <- aggregate(data[c("V", "Similarity")], list(Block=data$Block, PTEV=data$V_Traumatic), mean)
+a <- aggregate(data[c("V", "Similarity")], list(Block=data$Block, PTEV=data$PTEV), mean)
+
+t <- aggregate(data[c("Traumatic")], list(Block=data$Block, PTEV=data$PTEV), sum)
 ```
 
 ## Analysis of Effects of PTEV
@@ -50,7 +52,7 @@ Now, we can consider how how the model fares, after the PTE, for different value
 ```{r}
 plot.by.2factors(subset(a, a$Block >= -5), 
                  "V", "Block", "PTEV", 
-                 rng=c(0,12,2), legpos = "topleft")
+                 rng=c(0,16,2), legpos = "topleft")
 abline(v=6, lty=3)
 ```
 
@@ -61,7 +63,7 @@ We can also consider how well the model is doing cognitively. This is measured b
 ```{r}
 plot.by.2factors(subset(a, a$Block >= -1), 
                  "Similarity", "Block", "PTEV", 
-                 rng=c(0.15 ,0.4, 0.05),
+                 rng=c(0.0 ,0.5, 0.05),
                  legpos="bottomleft")
 abline(v=2, lty=3)
 ```
@@ -81,3 +83,12 @@ plot.by.2factors(na, "V", "Block", "PTEV", rng=c(0,1,0.1), legpos = "topleft")
 abline(v=7, lty=3)
 ```
 
+
+# Frequency of traumatic memories
+
+```{r}
+plot.by.2factors(subset(t, t$Block >= -5), 
+                 "Traumatic", "Block", "PTEV", 
+                 legpos = "topleft")
+abline(v=6, lty=3)
+```
