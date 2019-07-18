@@ -16,12 +16,6 @@ import string
 
 class PTSD_Object:
     
-    def vectorize_memory(self, chunk):
-        """Returns a vector representation of a chunk"""
-        values = [actr.chunk_slot_value(chunk, slot) for slot in self.SLOT_NAMES]
-        return tuple([x for x in values if x is not None])
-
-
     def chunk_similarity(self, chunk1, chunk2):
         """
         Calculates the similarity between two chunks. Currently,
@@ -45,6 +39,7 @@ class Simulation(PTSD_Object):
         self.n = n
         self.Vs = Vs
         self.model = model
+        self._currentV = 0
         self.PTEV = 10        # Potentially Traumatic Event Value
         self.PTET = 600 * 30  # Potentially Traumatic Event Time
         self.PTES = 0.0       # Similarity of PTE to other chunks ([0,1] range)
@@ -58,7 +53,7 @@ class Simulation(PTSD_Object):
         self.model_params = {}
 
         # Read-only params
-        self._currentV = 0.0
+        #self._currentV = 0.0
         #self._slot_values = tuple(x for x in string.ascii_letters[-26:-16])
         #self._traumatic_slot_values = tuple(x for x in string.ascii_letters[-10:])
         #self._slot_names = tuple("SLOT" + "%d" % (x + 1,) for x in range(10))
@@ -67,8 +62,12 @@ class Simulation(PTSD_Object):
         
     @property
     def currentV(self):
-        self._currentV
+        return self._currentV
 
+    @property
+    def currentS(self):
+        return self._currentS
+    
     @property
     def slot_values(self):
         return self._slot_values
@@ -91,8 +90,10 @@ class Simulation(PTSD_Object):
     def PTEV(self, val):
         if type(val) in [int, float]:
             self._PTEV = [val]
+            self._currentV = val
         elif type(val) in [list, tuple]:
             self._PTEV = val
+            self._currentV = val[0]
             
 
     @property
@@ -104,9 +105,12 @@ class Simulation(PTSD_Object):
         if type(val) in [int, float]:
             if val >= 0.0 and val <= 1.0:
                 self._PTES = [val]
+                self._currentS = val
         elif type(val) in [list, tuple]:
             fval = [x for x in val if x >= 0.0 and x <= 1.0]
-            self._PTES = fval
+            if len(fval) > 0:
+                self._PTES = fval
+                self._currentS = fval[0]
 
     @property
     def num_slots(self):
@@ -137,13 +141,19 @@ class Simulation(PTSD_Object):
 
 
     # --- METHODS -------------------------------------------------- #
-        
+
+    def vectorize_memory(self, chunk):
+        """Returns a vector representation of a chunk"""
+        values = [actr.chunk_slot_value(chunk, slot) for slot in self.slot_names]
+        return tuple([x for x in values if x is not None])
+
+
     def generate_random_memory(self, traumatic=False):
         """Generates a new memkory with random attributes"""
         template = [False] * self.num_slots
         T = []
         if traumatic:
-            n_changes = int(self.num_slots * (1 - self.PTES))
+            n_changes = int(self.num_slots * (1 - self.currentS))
             for j in range(n_changes):
                 template[j] = True
             T = ["traumatic", "yes"]
@@ -205,17 +215,15 @@ class Simulation(PTSD_Object):
         source = actr.buffer_chunk("imaginal")
         if len(source) > 0:
             source = source[0]
-
             if (chunk != source):
                 kind1 = actr.chunk_slot_value(source, "KIND")
                 kind2 = actr.chunk_slot_value(chunk, "KIND")
-
                 if (kind1.upper() == "MEMORY" and kind2.upper() == "MEMORY"):
                     v1 = self.vectorize_memory(source)
                     v2 = self.vectorize_memory(chunk)
                     sim = self.chunk_similarity(source, chunk)
                     w = actr.get_parameter_value(":imaginal-activation")
-
+                    
                     if w is None:
                         w = 0.0
 
@@ -230,12 +238,17 @@ class Simulation(PTSD_Object):
 
         if chunk is not None and \
            actr.chunk_slot_value(chunk, "kind") == "MEMORY":
+            param_values = []
+            for param in sorted(self.model_params.keys()):
+                param_values.append(self.model_params[param])
+                
             source = actr.buffer_chunk("imaginal")[0]
             v = self.V_TABLE[chunk]
             s = self.chunk_similarity(chunk, source)
             if actr.chunk_slot_value(chunk, "traumatic") == "YES":
                 t = 1.0
-            self.TRACE.append([self.counter, self.PTEV, actr.mp_time(), v, t, s])
+            self.TRACE.append([self.counter, self.currentV, actr.mp_time(), v, t, s] + \
+                              param_values)
 
 
     def simulate(self):
@@ -264,6 +277,10 @@ class Simulation(PTSD_Object):
         actr.set_parameter_value(":V", False)
         actr.set_parameter_value(":cmdt", False)
 
+        # Apply the set of provided parameters
+        for param, value in self.model_params.items():
+            actr.set_parameter_value(param, value)
+        
         # Run a life simulation
 
         event_time = 0.0
@@ -295,17 +312,21 @@ class Simulation(PTSD_Object):
         verbose --- If True (default), prints progress updates
         """
         for v in self.PTEV:
-            self.currentV = v
-            if verbose:
-                print("V = %.2f: " % v, end="")
+            for s in self.PTES:
+                self.currentV = v
+                self.currentS = s
+                
+                if verbose:
+                    print("V = %.2f: " % v, end="")
+                    sys.stdout.flush()
+                    
+                for j in range(self.n):
+                    if verbose and (j % 5) == 0.0:
+                        print(".", end="")
+                    self.simulate()
+                    sys.stdout.flush()
 
-            for j in range(self.n):
-                if verbose and (j % 5) == 0.0:
-                    print(".", end="")
-                self.simulate()
-                sys.stdout.flush()
-
-            print("")
+                print("")
 
 
     def save_trace(self, fname="trace.txt"):
@@ -315,7 +336,11 @@ class Simulation(PTSD_Object):
         fname --- Name of the file to save the data onto
                   (default is 'trace.txt')
         """
+        header = "Run,PTEV,Time,V,Traumatic,Similarity"
+        for param in sorted(self.model_params.keys()):
+            header += (",%s" % param)
+            
         np.savetxt(fname,
                    self.TRACE,
                    delimiter=",",
-                   header="Run,PTEV,Time,V,Traumatic,Similarity")
+                   header=header)
