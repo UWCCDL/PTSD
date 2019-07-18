@@ -317,7 +317,7 @@ class Simulation(PTSD_Object):
                 self._currentS = s
                 
                 if verbose:
-                    print("V = %.2f: " % v, end="")
+                    print("V = %.2f, S = %.2f: " % (v, s), end="")
                     sys.stdout.flush()
                     
                 for j in range(self.n):
