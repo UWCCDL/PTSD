@@ -212,12 +212,18 @@ mysim.save_trace("mysim.txt")
 
 The following parameters can be set for each simulation:
 
+* __PTEV__ The "emotional" value of a traumatic memory. It can be set
+  to either a number or to a list of numbers; in the latter case,
+  the simulations will loop over the given values.  
+
 * __PTES__ The degree of similarity between the traumatic event and
-  all the other events in memory. Similarity is controlled by
-  selecting the slot values for the PTE from a different set. If
-  similarity is 1.0, then all the slots of the PTE will come from the
-  same set of slot values as the other events. If _PTES_ = 0.0, on the
-  other hand, the slots will come from a different set.
+  all the other events in memory. It can be set to either a number 0
+  <= n <=1, or to a list of numbers 0<= n <= 1; in the latter case,
+  the simulations will loop over the given values. Similarity is
+  controlled by selecting the slot values for the PTE from a different
+  set. If similarity is 1.0, then all the slots of the PTE will come
+  from the same set of slot values as the other events. If _PTES_ =
+  0.0, on the other hand, the slots will come from a different set. 
 
 * __num_slots__ The number of slots in each chunk. These slots will be
   named `slot1`, `slot2` ... `slotN`.
@@ -236,3 +242,29 @@ The following parameters can be set for each simulation:
 * __model_params__: A dictionary of model parameters to be set in the
   model. These are supposed to be meaningful ACT-R parameters; no
   check is performed on their consistency.
+
+
+## Example code
+
+The `simulations.py` file provide an example of script that can be
+used to run simulations. In essence, simulations can be easily managed
+by looping through the desired parameters:
+
+```python
+for ia in [0, 2, 4, 6, 8, 10]:
+    for blc in [0.3, 0.4, 0.5, 0.6, 0.7]:
+        s = ptsd.Simulations()
+        s.PTEV = [1, 5, 10, 15, 20]
+        s.PTES = [0, 0.25, 0.5, 0.75, 1]
+        s.model_params = {":imaginal-activation" : ia,
+                          ":blc" : blc}
+        s.n = 100
+        s.max_time = 100000
+        s.run()
+        s.save_trace("trace_ia=%d_blc=%.2f.txt" % (ia, blc))
+
+```
+
+Note that the code assumes that ACT-R is running in the background; a
+fully-functional script would start an ACT-R process in the background
+and run the simulatins afterwards.
