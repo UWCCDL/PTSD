@@ -1,4 +1,4 @@
-# A simple ACT-R models of intrusive memories in PTSD 
+# A simple ACT-R model of intrusive memories in PTSD 
 
 ## Main idea
 
