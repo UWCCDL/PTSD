@@ -31,19 +31,27 @@
      
      ;; Monitor responses
      :retrieved-chunk-hook "monitor_retrievals")
-  
 
+;;; ---- CHUNK TYPES ----------------------------------------------- #
+
+;;; Internal goal
+;;;
 (chunk-type task processed)
 
+;;; Memory attributes (chunk slot values for memories)
+;;;
 (chunk-type memory kind slot1 slot2 slot3
             slot4 slot5 slot6 slot7 slot8
             slot9 slot10 traumatic)
 
+;;; ** Currently unused **
 (chunk-type situation kind value)
 
 
 ;;; ---- DECLARATIVE KNOWLEDGE ------------------------------------- #
 
+;;; Chunk attributes (i.e., slot values)
+;;;
 (add-dm (a) (b) (c) (d) (e) (f) (g) (h)
         (i) (j) (k) (l) (m) (n) (o) (p)
         (q) (r) (s) (t) (u) (v) (w) (x)
