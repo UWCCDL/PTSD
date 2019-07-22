@@ -6,6 +6,9 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
+library("ggplot2")
+library(tidyverse)
+library(matlab)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -54,6 +57,12 @@ plot.by.2factors(subset(a, a$Block >= -5),
                  "V", "Block", "PTEV", 
                  rng=c(0,16,2), legpos = "topleft")
 abline(v=6, lty=3)
+
+ggplot(a, aes(x = Block, y = V, col=PTEV)) +
+  geom_line(aes(color=PTEV)) +
+  ylab("V)") +
+  xlab("Block") 
+
 ```
 
 ## Analysis of Effects of PTEV on Similarity
@@ -61,11 +70,15 @@ abline(v=6, lty=3)
 We can also consider how well the model is doing cognitively. This is measured by the _Similarity_ between the retrieved response and the current context. As memories become more intrusive, the similarity is expected to decrease. Decreased similarity means that the response made is not as relevant to the current context.
 
 ```{r}
-plot.by.2factors(subset(a, a$Block >= -1), 
+
+plot.by.2factors(subset(a, a$Block >= -5), 
                  "Similarity", "Block", "PTEV", 
                  rng=c(0.0 ,0.5, 0.05),
-                 legpos="bottomleft")
+                 legpos="bottomleft",
+                                  colors=jet.colors(5))
 abline(v=2, lty=3)
+
+
 ```
 
 ## Normalized Effects of PTEV
@@ -88,7 +101,9 @@ abline(v=7, lty=3)
 
 ```{r}
 plot.by.2factors(subset(t, t$Block >= -5), 
-                 "Traumatic", "Block", "PTEV", 
-                 legpos = "topleft")
+                 "Traumatic", "Block", "PTEV",
+                 legpos = "topleft",
+                 rng=c(0,40,10),
+                 colors=jet.colors(5))
 abline(v=6, lty=3)
 ```

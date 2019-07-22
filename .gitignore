@@ -3,3 +3,7 @@
 
 # ignore cache folder
 *__pycache__/
+
+# ignore emacs backups
+#*.*#
+*.*~

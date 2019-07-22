@@ -170,7 +170,11 @@ plot.by.1factor <- function(data, variable, factor, rng=NULL, legpos="bottomleft
 	legend(legpos, legend=paste(variable, "+/- SEM"), pch=21, lty=1, pt.bg="black", pt.cex=CEX, bty="n")
 }
 
-plot.by.2factors <- function(data, variable, factor1, factor2, rng=NULL, legpos="bottomleft", abs=NULL, main=paste(variable, "by", factor2), subtitle=NULL, points=NULL, colors=NULL, fgs=NULL, lwds=NULL,...) {
+plot.by.2factors <- function(data, variable, factor1, factor2, 
+                             rng=NULL, legpos="bottomleft", abs=NULL, 
+                             main=paste(variable, "by", factor2), 
+                             subtitle=NULL, points=NULL, colors=NULL, 
+                             fgs=NULL, lwds=NULL,...) {
 	levels <- levels(factor(data[[factor2]]))
 	res <- tapply(data[[variable]], factor(data[[factor1]]), mean)
 	CEX=1.6
