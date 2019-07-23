@@ -1,136 +1,123 @@
-;;; -------------------------------------------------------------- ;;;
-;;; AN ACT-R MODEL OF INTRUSIVE MEMORIES IN PTSD
-;;; -------------------------------------------------------------- ;;;
-;;; (c) 2019, Briana Smith and Andrea Stocco
-;;; University of Washington, Seattle, WA 98195
-;;; -------------------------------------------------------------- ;;;
+;;; PTSD SIMULATION CODE FOR FAST EXECUTION
+
+(defconstant *letters* '(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z))
+
+(defun seq (start end &optional (step 1))
+  "Creates a ranges"
+  (let ((results nil)
+	(partial start))
+    (cond ((and (< start end)
+		(plusp step))
+	   (loop while (< partial end) do
+	     (push partial results)
+	     (incf partial step)))
+	  ((and (> start end)
+		(minusp step))
+	   (loop while (> partial end) do
+	     (push partial results)
+	     (incf partial step)))
+	  (t
+	   nil))
+    (reverse results)))
+	  
+
+(defun pick (lst)
+  "Picks up an element from a list"
+  (when  (listp lst)
+    (elt lst (random (length lst)))))
 
 
-(clear-all)
+(defun scramble (lst &optional (sofar nil))
+  "Scrambles a list of different elements"
+  (if (null lst)
+      sofar
+    (let ((picked (pick lst)))
+      (scramble (remove picked lst) (cons picked sofar)))))
 
-(define-model ptsd
-
-
-(sgp :esc t
-     :er t
-     :bll 0.5
-     :blc 1.0
-     
-     ;; Enable WM effects through spreading activation
-     :mas 10.0
-     :imaginal-activation 5.0
-     
-     ;; Adds V term for base-level activation
-     :activation-offsets "v_offset"
-     :chunk-add-hook "keep_table"
-     :ans 0.6
-     
-     ;; Similarity-based metric
-     ;;:sji-hook "sji_calculation"
-     :spreading-hook "spreading"
-     
-     ;; Monitor responses
-     :retrieved-chunk-hook "monitor_retrievals")
-
-;;; ---- CHUNK TYPES ----------------------------------------------- #
-
-;;; Internal goal
-;;;
-(chunk-type task processed)
-
-;;; Memory attributes (chunk slot values for memories)
-;;;
-(chunk-type memory kind slot1 slot2 slot3
-            slot4 slot5 slot6 slot7 slot8
-            slot9 slot10 traumatic)
-
-;;; ** Currently unused **
-(chunk-type situation kind value)
+(defun scramble* (lst)
+  "Scrambles any list of objects"
+  (let ((l (length lst))
+        (pos nil))
+    (dotimes (i l)
+      (push i pos))
+    (mapcar #'(lambda (x) (elt lst x)) (scramble pos))))
 
 
-;;; ---- DECLARATIVE KNOWLEDGE ------------------------------------- #
+(defclass simulation ()
+  ((model :accessor model
+          :initform "ptsd-model.lisp")
+   (n :accessor n
+      :initform 100)
+   (ptev :accessor ptev
+         :initform '(1 5 10))
+   (ptes :accessor ptes
+         :initform '(0 0.5 1))
+   (ptet :accessor ptet
+         :initform (* 60 300))
+   (max-time :accessor max-time
+             :initform 100000)
+   (event-step :accessor event-step
+               :initform 600)
+   (counter :accessor counter
+            :initform 0)
+   (num-slots :accessor num-slots
+              :initform 6)
+   (num-attributes :accessor num-attributes
+                   :initform 6)
+   (current-v :accessor current-v
+              :initform 1)
+   (current-s :accessor current-s
+              :initform 0)
+   (v-table :accessor v-table
+            :initform (make-hash-table))
+   (model-trace :accessor model-trace
+                :initform nil)
+   (model-params :accessor model-params
+                 :initform nil)))
 
-;;; Chunk attributes (i.e., slot values)
-;;;
-(add-dm (a) (b) (c) (d) (e) (f) (g) (h)
-        (i) (j) (k) (l) (m) (n) (o) (p)
-        (q) (r) (s) (t) (u) (v) (w) (x)
-        (y) (z) (yes) (no) (memory))
+(defmethod traumatic-slot-values ((s simulation))
+  (subseq (reverse *letters*) 0 (num-slots s))) 
+
+(defmethod slot-values ((s simulation))
+  (subseq *letters* 0 (num-slots s))) 
+
+(defun make-slot-name (num)
+  (intern (string-upcase (format nil "SLOT~A" num))))
+
+(defmethod generate-random-memory ((s simulation) &optional (traumatic nil))
+  (let ((template (make-list (num-slots s) :initial-element nil))
+        (tslot '(traumatic no))
+        (slots '(isa memory kind memory)))
+    (when traumatic
+      (let ((num-changes (round (* (num-slots s)
+                                   (- 1 (current-s s))))))
+        (dotimes (j num-changes)
+          (setf (nth j template) t)))
+      
+      (setf template (scramble* template)))
+      
+    (dotimes (j (length template))
+      (let ((val nil))
+        (if (nth j template)
+            (setf val (pick (traumatic-slot-values s)))
+            (setf val (pick (slot-values s))))
+        (setf slots (append slots (list (make-slot-name (1+ j))
+                                        val)))))
+
+    (setf slots (append slots tslot))))
+
+      
+(defmethod present-new-situation ((s simulation) &optional (buffer 'imaginal))
+  (let* ((newdef (generate-random-memory s (equal (mp-time)
+                                                  (ptet s))))
+         (newchunk (first (define-chunks-fct (list newdef)))))
+    (set-buffer-chunk buffer newchunk)))
+    
+
+(defmethod chunk-v-term ((s simulation) chunk)
+  (log (gethash chunk (v-table s) 1.0))) 
 
 
-;;; ---- PROCEDURAL KNOWLEDGE AND CONTROL -------------------------- #
-;;;
-;;; Basically, the entire agent is a knowledgeless
-;;; perceive-retrieve-respond loop.
-;;; ---------------------------------------------------------------- #
- 
-(p face-situation
-   "Realizes a new situation is present, and sets a goal to process it"
-   ?goal>
-     state free
-     buffer empty
-   
-   ?imaginal>
-      state free
-      buffer full
-==>
-    +goal>
-      isa task
-      processed no)
-
-
-(p retrieve
-    "Retrieves an appropriate chunk to respond to the current context"
-    =goal>
-      processed no
-
-    ?retrieval>
-      buffer empty
-      state free
-==>
-    +retrieval>
-      kind memory)
-
-
-(p elaborate
-    "Use the retrieved memory to respond appropriately to the current context"
-    =goal>
-      processed no
-
-    ?retrieval>
-      buffer full
-      state free
-==>
-    =goal>
-       processed yes
-      -retrieval>
-      -imaginal>)
-
-
-(p cant-retrieve
-    "Catches retrieval errors"
-    =goal>
-      processed no
-
-    ?retrieval>
-      state error
-==>
-    *goal>
-      processed yes
-     -retrieval>
-     -imaginal>
-    !stop!)
-
-
- (p solved
-    "Pops the goal"
-    =goal>
-      processed yes
-
-    ?goal>
-      state free
-  ==>
-    -goal>
-    !stop!)
-
-) ;;; End of model
+(defmethod add-chunk ((s simulation) chunk)
+  (if (equalp (chunk-slot-value 'traumatic chunk) 'no)
+      (setf (gethash chunk 
