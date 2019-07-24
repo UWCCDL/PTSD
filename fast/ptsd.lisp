@@ -34,6 +34,7 @@
     (let ((picked (pick lst)))
       (scramble (remove picked lst) (cons picked sofar)))))
 
+
 (defun scramble* (lst)
   "Scrambles any list of objects"
   (let ((l (length lst))
@@ -70,6 +71,8 @@
               :initform 0)
    (v-table :accessor v-table
             :initform (make-hash-table))
+   (slot-names :accessor slot-names
+               :initform '(slot1 slot2 slot3 slot4 slot5 slot6)) 
    (model-trace :accessor model-trace
                 :initform nil)
    (model-params :accessor model-params
@@ -115,9 +118,47 @@
     
 
 (defmethod chunk-v-term ((s simulation) chunk)
-  (log (gethash chunk (v-table s) 1.0))) 
+  (log (gethash chunk (v-table s) 1.0)))
 
 
 (defmethod add-chunk ((s simulation) chunk)
   (if (equalp (chunk-slot-value 'traumatic chunk) 'no)
-      (setf (gethash chunk 
+      (setf (gethash chunk (v-table s)) (random 2.0))
+      (setf (gethash chunk (v-table s)) (current-v s))))
+
+(defmethod vectorize-memory ((s simulation) chunk)
+  (mapcar #'(lambda (x) (chunk-slot-value-fct chunk x))
+          (slot-names s)))
+
+(defmethod chunk-similarity ((s simulation) chunk1 chunk2)
+  (let ((v1 (vectorize-memory s chunk1))
+        (v2 (vectorize-memory s chunk2)))
+    (when (= (length v1)
+             (length v2))
+      (/ (reduce #'+ (mapcar #'(lambda (x y) (if (equalp x y) 1 0))
+                             v1 v2))
+         (length v1)))))
+  
+
+(defmethod spreading-activation ((s simulation) chunk &optional (buffer 'imaginal))
+  (let ((source (no-output (buffer-chunk-fct (list buffer)))))
+    (when (> (length source) 0)
+      (setf source (first source))
+      (when (not (equalp chunk source))
+        (let ((kind1 (chunk-slot-value-fct source 'KIND))
+              (kind2 (chunk-slot-value-fct chunk 'KIND)))
+          (when (and (equalp kind1 'memory)
+                     (equalp kind2 'memory))
+            (let ((sim (chunk-similarity s
+                                         (vectorize-memory s source)
+                                         (vectorize-memory s chunk)))
+                  (w (get-parameter-value :imaginal-activation)))
+              (when (null w)
+                (setf w 0.))
+              (* sim w))))))))
+
+
+(defmethod simulate (s simulation)
+  nil)
+            
+  
