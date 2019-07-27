@@ -21,16 +21,17 @@
      :imaginal-activation 5.0
      
      ;; Adds V term for base-level activation
-     :activation-offsets "v_offset"
-     :chunk-add-hook "keep_table"
+     ;:activation-offsets "v_offset"
+     ;:chunk-add-hook "keep_table"
      :ans 0.6
      
      ;; Similarity-based metric
      ;;:sji-hook "sji_calculation"
-     :spreading-hook "spreading"
+     ;:spreading-hook "spreading"
      
      ;; Monitor responses
-     :retrieved-chunk-hook "monitor_retrievals")
+     ;;:retrieved-chunk-hook "monitor_retrievals"
+     )
 
 ;;; ---- CHUNK TYPES ----------------------------------------------- #
 
@@ -119,7 +120,8 @@
       processed yes
      -retrieval>
      -imaginal>
-    !stop!)
+     ;!stop!
+)
 
 
  (p solved
@@ -131,6 +133,7 @@
       state free
   ==>
     -goal>
-    !stop!)
+    ;!stop!
+    )
 
 ) ;;; End of model

@@ -122,7 +122,7 @@
 
 
 (defmethod add-chunk ((s simulation) chunk)
-  (if (equalp (chunk-slot-value 'traumatic chunk) 'no)
+  (if (equalp (chunk-slot-value-fct chunk 'traumatic) 'no)
       (setf (gethash chunk (v-table s)) (random 2.0))
       (setf (gethash chunk (v-table s)) (current-v s))))
 
@@ -140,7 +140,8 @@
          (length v1)))))
   
 
-(defmethod spreading-activation ((s simulation) chunk &optional (buffer 'imaginal))
+(defmethod modified-spreading-activation ((s simulation) chunk
+                                          &optional (buffer 'imaginal))
   (let ((source (no-output (buffer-chunk-fct (list buffer)))))
     (when (> (length source) 0)
       (setf source (first source))
@@ -149,16 +150,36 @@
               (kind2 (chunk-slot-value-fct chunk 'KIND)))
           (when (and (equalp kind1 'memory)
                      (equalp kind2 'memory))
-            (let ((sim (chunk-similarity s
-                                         (vectorize-memory s source)
-                                         (vectorize-memory s chunk)))
+            (let ((sim (chunk-similarity s source chunk))
                   (w (get-parameter-value :imaginal-activation)))
               (when (null w)
                 (setf w 0.))
               (* sim w))))))))
 
 
-(defmethod simulate (s simulation)
-  nil)
-            
+(defmethod monitor-retrievals ((s simulation) chunk)
+  (push chunk (model-trace s)))
+
+
+(defmethod simulate ((s simulation))
+  (load "~/Documents/Research/PTSD/fast/ptsd-model.lisp")
+  ;;; Set hooks
+  (set-parameter-value :activation-offsets #'(lambda (chunk)
+                                               (chunk-v-term s chunk)))
+  (set-parameter-value :chunk-add-hook #'(lambda (chunk)
+                                           (add-chunk s chunk)))
+
+  (set-parameter-value :spreading-hook #'(lambda (chunk)
+                                           (modified-spreading-activation s chunk)))
+  (set-parameter-value :retrieved-chunk-hook #'(lambda (chunk)
+                                                 (monitor-retrievals s chunk)))
+  ;; Resets simulations
+  (setf (v-table s) (make-hash-table))
+  (setf (model-trace s) nil)
+
+  ;; Run
+  (let ((time 0))
+    (while (< time (max-time s))
+      (schedule-event time #'present-new-situation :params (list s))
+      (incf time (event-step s)))))
   
