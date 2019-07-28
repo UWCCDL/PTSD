@@ -1,6 +1,11 @@
 ;;; PTSD SIMULATION CODE FOR FAST EXECUTION
 
-(defconstant *letters* '(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z))
+(defconstant *letters* '(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z)
+  "Letters are used as stimulus attributes")
+
+;;; -------------------------------------------------------------- ;;;
+;;; UTILITIES
+;;; -------------------------------------------------------------- ;;;
 
 (defun seq (start end &optional (step 1))
   "Creates a ranges"
@@ -44,6 +49,10 @@
     (mapcar #'(lambda (x) (elt lst x)) (scramble pos))))
 
 
+;;; -------------------------------------------------------------- ;;;
+;;; SIMULATION OBJECT AND METHODS
+;;; -------------------------------------------------------------- ;;;
+
 (defclass simulation ()
   ((model :accessor model
           :initform "ptsd-model.lisp")
@@ -76,18 +85,25 @@
    (model-trace :accessor model-trace
                 :initform nil)
    (model-params :accessor model-params
-                 :initform nil)))
+                 :initform (make-hash-table))))
 
 (defmethod traumatic-slot-values ((s simulation))
+  "Returns the list of attributes used for traumatic memories"
   (subseq (reverse *letters*) 0 (num-slots s))) 
 
+
 (defmethod slot-values ((s simulation))
+  "Returns the list of attributes used for non-traumatic memories"
   (subseq *letters* 0 (num-slots s))) 
 
+
 (defun make-slot-name (num)
+  "Generates a symbol 'SLOT<N>', with N being an integer number"
   (intern (string-upcase (format nil "SLOT~A" num))))
 
+
 (defmethod generate-random-memory ((s simulation) &optional (traumatic nil))
+  "Generates a random memory"
   (let ((template (make-list (num-slots s) :initial-element nil))
         (tslot '(traumatic no))
         (slots '(isa memory kind memory)))
@@ -96,7 +112,7 @@
                                    (- 1 (current-s s))))))
         (dotimes (j num-changes)
           (setf (nth j template) t)))
-      
+      (setf tslot '(traumatic yes))
       (setf template (scramble* template)))
       
     (dotimes (j (length template))
@@ -106,31 +122,37 @@
             (setf val (pick (slot-values s))))
         (setf slots (append slots (list (make-slot-name (1+ j))
                                         val)))))
-
     (setf slots (append slots tslot))))
 
       
 (defmethod present-new-situation ((s simulation) &optional (buffer 'imaginal))
-  (let* ((newdef (generate-random-memory s (equal (mp-time)
-                                                  (ptet s))))
+  "Presents a new situation to the model"
+  (let* ((newdef (generate-random-memory s (= (mp-time)
+                                              (ptet s))))
          (newchunk (first (define-chunks-fct (list newdef)))))
+    (when (= (mp-time) (ptet s))
+      (print newchunk))
     (set-buffer-chunk buffer newchunk)))
     
 
 (defmethod chunk-v-term ((s simulation) chunk)
+  "Returns the log(V) term associated with a given chunk (and used for activation)"
   (log (gethash chunk (v-table s) 1.0)))
 
 
 (defmethod add-chunk ((s simulation) chunk)
+  "Adds a new chunk to the internal list of memories"
   (if (equalp (chunk-slot-value-fct chunk 'traumatic) 'no)
       (setf (gethash chunk (v-table s)) (random 2.0))
       (setf (gethash chunk (v-table s)) (current-v s))))
 
 (defmethod vectorize-memory ((s simulation) chunk)
+  "Transforms a chunk into a vector of attributes"
   (mapcar #'(lambda (x) (chunk-slot-value-fct chunk x))
           (slot-names s)))
 
 (defmethod chunk-similarity ((s simulation) chunk1 chunk2)
+  "Calculates the simulariy between two chunks"
   (let ((v1 (vectorize-memory s chunk1))
         (v2 (vectorize-memory s chunk2)))
     (when (= (length v1)
@@ -158,9 +180,38 @@
 
 
 (defmethod monitor-retrievals ((s simulation) chunk)
-  (push chunk (model-trace s)))
+  "Keeps track of what is being retrieved"
+  (push (create-trace-entry s chunk)
+        (model-trace s)))
 
+;; # Run,V_Traumatic,Time,V,Traumatic,Similarity
+(defmethod create-trace-entry ((s simulation) chunk)
+  (let* ((entry (list (counter s)
+                      (current-v s)
+                      (mp-time)
+                      (if chunk
+                          (chunk-v-term s chunk)
+                          0)))
+         (traumatic-value (if chunk
+                              (chunk-slot-value-fct chunk 'traumatic)
+                              nil))
+           
+         (traumatic (if (equalp traumatic-value 'yes) 1 0))
+         (source (first (no-output (buffer-chunk-fct '(imaginal)))))
+         (similarity (if chunk
+                         (chunk-similarity s source chunk)
+                         0)))
+    (append entry (list traumatic similarity)))) 
 
+(defmethod save-trace ((s simulation) filename)
+  (with-open-file (fle "fast-simulations.txt"
+                       :direction :output
+                       :if-exists :overwrite
+                       :if-does-not-exist :create)
+    (dolist (row (model-trace s))
+      (format fle "~{~5,f~^, ~}~%" row))))
+
+         
 (defmethod simulate ((s simulation))
   (load "~/Documents/Research/PTSD/fast/ptsd-model.lisp")
   ;;; Set hooks
@@ -173,7 +224,17 @@
                                            (modified-spreading-activation s chunk)))
   (set-parameter-value :retrieved-chunk-hook #'(lambda (chunk)
                                                  (monitor-retrievals s chunk)))
+
+  (set-parameter-value :v nil)
+
+  ;; Set the simulation-specific parameters
+
+  (let ((params (model-params s))) 
+    (dolist (key (hash-table-keys params))
+      (set-parameter-value key (gethash key params)))) 
+  
   ;; Resets simulations
+  
   (setf (v-table s) (make-hash-table))
   (setf (model-trace s) nil)
 
