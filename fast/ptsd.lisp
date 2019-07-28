@@ -63,11 +63,11 @@
    (ptes :accessor ptes
          :initform '(0 0.5 1))
    (ptet :accessor ptet
-         :initform (* 60 300))
+         :initform (* 60 500))
    (max-time :accessor max-time
-             :initform 100000)
+             :initform 200000)
    (event-step :accessor event-step
-               :initform 600)
+               :initform (* 60 20))
    (counter :accessor counter
             :initform 0)
    (num-slots :accessor num-slots
@@ -96,6 +96,19 @@
   "Returns the list of attributes used for non-traumatic memories"
   (subseq *letters* 0 (num-slots s))) 
 
+(defmethod set-model-parameter ((s simulation) param value)
+  (when (keywordp param)
+    (setf (gethash param (model-params s))
+          value)))
+
+(defmethod get-model-parameters ((s simulation))
+  (sort (hash-table-keys (model-params s)) #'string-lessp))
+
+(defmethod get-model-parameter-values ((s simulation))
+  (let ((hash (model-params s)))
+    (mapcar #'(lambda (x)
+                (gethash x hash))
+            (get-model-parameters s))))
 
 (defun make-slot-name (num)
   "Generates a symbol 'SLOT<N>', with N being an integer number"
@@ -146,10 +159,12 @@
       (setf (gethash chunk (v-table s)) (random 2.0))
       (setf (gethash chunk (v-table s)) (current-v s))))
 
+
 (defmethod vectorize-memory ((s simulation) chunk)
   "Transforms a chunk into a vector of attributes"
   (mapcar #'(lambda (x) (chunk-slot-value-fct chunk x))
           (slot-names s)))
+
 
 (defmethod chunk-similarity ((s simulation) chunk1 chunk2)
   "Calculates the simulariy between two chunks"
@@ -188,26 +203,41 @@
 (defmethod create-trace-entry ((s simulation) chunk)
   (let* ((entry (list (counter s)
                       (current-v s)
+                      (current-s s)
+                      (num-slots s)
+                      (num-attributes s)
                       (mp-time)
                       (if chunk
                           (chunk-v-term s chunk)
                           0)))
+         
          (traumatic-value (if chunk
                               (chunk-slot-value-fct chunk 'traumatic)
                               nil))
            
          (traumatic (if (equalp traumatic-value 'yes) 1 0))
+
          (source (first (no-output (buffer-chunk-fct '(imaginal)))))
+
          (similarity (if chunk
                          (chunk-similarity s source chunk)
                          0)))
-    (append entry (list traumatic similarity)))) 
+    
+    (append entry (list traumatic similarity) (get-model-parameter-values s)))) 
+
+
+(defparameter *colnames*
+  '("Run" "PTEV" "PTES" "NumSlots"
+    "NumAttributes" "Time" "ChunkV" "ChunkSimilarity")
+  "Names of the fundametal values to log")
+
 
 (defmethod save-trace ((s simulation) filename)
   (with-open-file (fle "fast-simulations.txt"
                        :direction :output
                        :if-exists :overwrite
                        :if-does-not-exist :create)
+    (format fle "~{~A~^, ~}~%" (append *colnames* (get-model-parameters s)))
     (dolist (row (model-trace s))
       (format fle "~{~5,f~^, ~}~%" row))))
 
