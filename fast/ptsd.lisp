@@ -85,7 +85,9 @@
    (model-trace :accessor model-trace
                 :initform nil)
    (model-params :accessor model-params
-                 :initform (make-hash-table))))
+                 :initform (make-hash-table))
+   (logfile :accessor logfile
+            :initform nil)))
 
 (defmethod traumatic-slot-values ((s simulation))
   "Returns the list of attributes used for traumatic memories"
@@ -143,8 +145,8 @@
   (let* ((newdef (generate-random-memory s (= (mp-time)
                                               (ptet s))))
          (newchunk (first (define-chunks-fct (list newdef)))))
-    (when (= (mp-time) (ptet s))
-      (print newchunk))
+    ;;(when (= (mp-time) (ptet s))
+    ;;  (print newchunk))
     (set-buffer-chunk buffer newchunk)))
     
 
@@ -233,7 +235,7 @@
 
 
 (defmethod save-trace ((s simulation) filename)
-  (with-open-file (fle "fast-simulations.txt"
+  (with-open-file (fle (logfile s)
                        :direction :output
                        :if-exists :overwrite
                        :if-does-not-exist :create)
@@ -252,6 +254,7 @@
 
   (set-parameter-value :spreading-hook #'(lambda (chunk)
                                            (modified-spreading-activation s chunk)))
+
   (set-parameter-value :retrieved-chunk-hook #'(lambda (chunk)
                                                  (monitor-retrievals s chunk)))
 
@@ -266,11 +269,26 @@
   ;; Resets simulations
   
   (setf (v-table s) (make-hash-table))
-  (setf (model-trace s) nil)
+  ;;(setf (model-trace s) nil)
 
   ;; Run
   (let ((time 0))
     (while (< time (max-time s))
       (schedule-event time #'present-new-situation :params (list s))
-      (incf time (event-step s)))))
+      (incf time (event-step s))))
+
+  (run (max-time s)))
   
+
+(defmethod run-simulations ((s simulation))
+  (setf (model-trace s) nil)
+  (dolist (v-val (ptev s))
+    (dolist (s-val (ptes s))
+      (setf (current-v s) v-val)
+      (setf (current-s s) s-val)
+      (dotimes (ii (n s))
+        (print (list v-val s-val ii))
+        (setf (counter s) ii)
+        (simulate s))))
+  (unless (null (logfile s))
+    (save-trace s nil)))

@@ -10,12 +10,12 @@
 
 (define-model ptsd
 
-
 (sgp :esc t
      :er t
      :bll 0.5
      :blc 1.0
-     
+     :ans 0.6
+
      ;; Enable WM effects through spreading activation
      :mas 10.0
      :imaginal-activation 5.0
@@ -23,7 +23,6 @@
      ;; Adds V term for base-level activation
      ;:activation-offsets "v_offset"
      ;:chunk-add-hook "keep_table"
-     :ans 0.6
      
      ;; Similarity-based metric
      ;;:sji-hook "sji_calculation"
@@ -120,7 +119,6 @@
       processed yes
      -retrieval>
      -imaginal>
-     ;!stop!
 )
 
 
@@ -133,7 +131,6 @@
       state free
   ==>
     -goal>
-    ;!stop!
     )
 
 ) ;;; End of model
