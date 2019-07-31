@@ -295,7 +295,7 @@
       (setf (current-v s) v-val)
       (setf (current-s s) s-val)
       (dotimes (ii (n s))
-        (print (list v-val s-val ii))
+        ;;(print (list v-val s-val ii))
         (setf (counter s) ii)
         (simulate s))))
   (unless (null (logfile s))
