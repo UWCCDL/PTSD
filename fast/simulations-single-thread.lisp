@@ -1,4 +1,4 @@
-(load "/projects/actr/actr7.x/load-act-r.lisp")(load "/home/stocco/Desktop/PTSD/fast/ptsd.lisp")
+(load "/projects/actr/actr7.x/load-act-r.lisp")(load "/home/andrea/Documents/Research/PTSD/fast/ptsd.lisp")(defparameter sim nil)
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
       '(1 20 10 5 15))
@@ -10,7 +10,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=0.0_bll=0.10.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -23,7 +27,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=0.0_bll=0.90.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -36,7 +44,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=0.0_bll=0.50.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -49,7 +61,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=0.0_bll=0.30.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -62,7 +78,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=0.0_bll=0.70.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -75,7 +95,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=10.0_bll=0.10.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -88,7 +112,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=10.0_bll=0.90.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -101,7 +129,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=10.0_bll=0.50.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -114,7 +146,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=10.0_bll=0.30.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -127,7 +163,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=10.0_bll=0.70.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -140,7 +180,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=5.0_bll=0.10.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -153,7 +197,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=5.0_bll=0.90.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -166,7 +214,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=5.0_bll=0.50.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -179,7 +231,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=5.0_bll=0.30.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -192,7 +248,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=5.0_bll=0.70.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -205,7 +265,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=2.5_bll=0.10.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -218,7 +282,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=2.5_bll=0.90.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -231,7 +299,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=2.5_bll=0.50.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -244,7 +316,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=2.5_bll=0.30.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -257,7 +333,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=2.5_bll=0.70.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -270,7 +350,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=7.5_bll=0.10.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -283,7 +367,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=7.5_bll=0.90.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -296,7 +384,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=7.5_bll=0.50.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -309,7 +401,11 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=7.5_bll=0.30.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
@@ -322,5 +418,9 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=7.5_bll=0.70.txt") 
-(run-simulations sim)
+(handler-case
+    (run-simulations sim)
+  (t (c)
+    (format t "Got an exception: ~a~%" c)
+    (save-trace sim)))
 (quit)

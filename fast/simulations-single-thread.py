@@ -22,7 +22,7 @@ TEMPLATE="""
 (handler-case
     (run-simulations sim)
   (t (c)
-    (format t "Got an exception: ~a~%" c)
+    (format t "Got an exception: ~a%s" c)
     (save-trace sim)))
 """
 
@@ -32,7 +32,7 @@ fout.write('(load "%s/ptsd.lisp")' % CURRENTDIR)
 fout.write('(defparameter sim nil)')
 for w in [0.0, 10, 5, 2.5, 7.5]:
     for bll in [0.1, 0.9, 0.5, 0.3, 0.7]:
-        fout.write(TEMPLATE % (w, bll, w, bll))
+        fout.write(TEMPLATE % (w, bll, w, bll, "~%"))
         fout.flush()
 fout.write("(quit)")
 fout.flush()
