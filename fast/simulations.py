@@ -18,7 +18,7 @@ TEMPLATE="""
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=%.1f_bll=%.2f.txt") 
-(run sim)
+(run-simulations sim)
 (quit)
 """
 

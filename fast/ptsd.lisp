@@ -265,7 +265,15 @@
   (let ((params (model-params s))) 
     (dolist (key (hash-table-keys params))
       (set-parameter-value key (gethash key params)))) 
+
+  ;; Load the basic chunks
+
   
+  ;;(add-dm (a) (b) (c) (d) (e) (f) (g) (h)
+  ;;        (i) (j) (k) (l) (m) (n) (o) (p)
+  ;;        (q) (r) (s) (t) (u) (v) (w) (x)
+  ;;        (y) (z) (yes) (no) (memory))
+
   ;; Resets simulations
   
   (setf (v-table s) (make-hash-table))

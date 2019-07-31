@@ -52,10 +52,11 @@
 
 ;;; Chunk attributes (i.e., slot values)
 ;;;
-(add-dm (a) (b) (c) (d) (e) (f) (g) (h)
-        (i) (j) (k) (l) (m) (n) (o) (p)
-        (q) (r) (s) (t) (u) (v) (w) (x)
-        (y) (z) (yes) (no) (memory))
+;;(add-dm (a) (b) (c) (d) (e) (f) (g) (h)
+(define-chunks (a) (b) (c) (d) (e) (f) (g) (h)
+               (i) (j) (k) (l) (m) (n) (o) (p)
+               (q) (r) (s) (t) (u) (v) (w) (x)
+               (y) (z) (yes) (no) (memory))
 
 
 ;;; ---- PROCEDURAL KNOWLEDGE AND CONTROL -------------------------- #

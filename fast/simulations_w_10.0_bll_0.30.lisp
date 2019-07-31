@@ -12,5 +12,5 @@
   (setf (model-params sim) ht))
 
 (setf (logfile sim) "simulations_w=10.0_bll=0.30.txt") 
-(run sim)
+(run-simulations sim)
 (quit)
