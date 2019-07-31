@@ -245,7 +245,7 @@
 
          
 (defmethod simulate ((s simulation))
-  (load "~/Documents/Research/PTSD/fast/ptsd-model.lisp")
+  (load "ptsd-model.lisp")
   ;;; Set hooks
   (set-parameter-value :activation-offsets #'(lambda (chunk)
                                                (chunk-v-term s chunk)))

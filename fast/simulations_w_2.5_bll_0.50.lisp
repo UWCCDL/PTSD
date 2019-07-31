@@ -1,6 +1,6 @@
 
-(load "/actr/actr7.x/load-act-r.lisp")
-(load "ptsd.lisp")
+(load "/projects/actr/actr7.x/load-act-r.lisp")
+(load "/home/stocco/Desktop/PTSD/fast/ptsd.lisp")
 (setf sim (make-instance 'simulation))
 (setf (ptev sim) 
       '(1 20 10 5 15))
