@@ -234,7 +234,7 @@
   "Names of the fundametal values to log")
 
 
-(defmethod save-trace ((s simulation) filename)
+(defmethod save-trace ((s simulation))
   (with-open-file (fle (logfile s)
                        :direction :output
                        :if-exists :overwrite
@@ -299,4 +299,4 @@
         (setf (counter s) ii)
         (simulate s))))
   (unless (null (logfile s))
-    (save-trace s nil)))
+    (save-trace s)))
