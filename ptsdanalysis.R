@@ -11,11 +11,21 @@ data$Block<-round(data$Time/25, 0)
 
 data$Block <- data$Block - 6
 
-a <- aggregate(data[c("V", "Similarity")],
-               list(Block=data$Block, PTEV=data$V_Traumatic),
+a <- aggregate(data[c("Chunk", "ChunkSimilarity")],
+               list(Block=data$Block, PTEV=data$PTEV,
+                    S=data$PTES, W=data$IMAGINAL.ACTIVATION,
+                    BLL=data$BLL),
                mean)
 
 source("functions.R")
+library(ggplot2)
+
+ggplot(a, aes(x=Block, y=Chunk, col=PTEV)) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  stat_summary(fun.data = mean_se, geom="point") +
+  stat_summary(fun.data = mean_se, geom="errorbar", width=.05) +
+  facet_wrap(~W * ~BLL) +
+  theme_linedraw()
 
 plot.by.2factors(data, "V", "Block", "V_Traumatic", rng=c(0,12,2), legpos = "topleft",
                  colors = jet.colors(5))
