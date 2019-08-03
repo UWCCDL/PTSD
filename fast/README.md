@@ -35,28 +35,28 @@ the command calls with Lisp-level hook functions.
 
 # Usage
 
-## Object-oriented code
+The only way to use the Fast code is through a Lisp interpreter, after
+ACT-R has been loaded. If you are using the Stand-Alone version of
+ACT-R, then you (obviously) do not need to load ACT-R. Otherwise, you
+need to load ACT-R by typing the following command on your REPL prompt:
 
-The recommended way to use the code is to use the new, object-oriented
-version of the simulations. In this new version, every simulation is
-encapsulated as a `Simulation` object. This make it possible to handle
-several simulation parameters without affecting the internal variables
-of the `ptsd` module.
-
-To start a simulation, one must first load the `ptsd`
-module:
-
-```python
-import ptsd
+```lisp
+(load "<path/to/actr/load-act-r.lisp")
 ```
 
-This will automatically load the `actr.py` module and establish a
-connection, if it hasn't been done before.
+To start a simulation, one must first load the `ptsd` file:
+
+```lisp
+(load "ptsd.lisp")
+```
+
+This will automatically define all the necessary classes and methods
+for the simulations.
 
 The next step is to then create an instance of a Simulation object:
 
-```python
-mysim = ptsd.Simulation()
+```lisp
+(setf mysim (make-instance 'simulation))
 ```
 
 At this point, the simulation parameters can be controlled by setting
@@ -64,28 +64,30 @@ appropriate variables of the simulation object. For example, to create
 a simulation over _V_ values of 2.0 and 5.0, with _N_ = 100 runs per
 value, and a maximum duration of 100,000 seconds, one would type this:
 
-```python
-mysim.Vs = [2.0, 5.0]
-mysim.n = 100
-mysim.max_time = 100000
+```lisp
+(setf (ptev mysim) '(2 5))
+(setf (n mysim) 100)
+(sef (max-time mysim) 100000)
 ```
 
-The entire simulation can be executed through the `run` method:
+The entire simulation can be executed through the `run-simulations` method:
 
-```python
-mysim.run()
+```lisp
+(run-simulations mysim)
 ```
 
 Once the simulation is done, the data is saved in the `TRACE` variable
 of the `mysim` object. The trace can be saved to a file:
 
 ```python
-mysim.save_trace("mysim.txt")
+(save_trace mysim "mysim.txt")
 ```
 
 ## Parameters
 
-The following parameters can be set for each simulation:
+As in the Python code, Tthe following parameters can be set for each
+simulation. This being Lisp code, none of the names are actually
+case-sensitive.
 
 * __PTEV__ The "emotional" value of a traumatic memory. It can be set
   to either a number or to a list of numbers; in the latter case,
@@ -122,24 +124,26 @@ The following parameters can be set for each simulation:
 ## Example code
 
 The `simulations.py` file provide an example of script that can be
-used to run simulations. In essence, simulations can be easily managed
-by looping through the desired parameters:
+used to generate Lisp code that manages and runs simulations. It
+contains a Lisp template that can be copied and personalized. In
+essence, simulations can be easily managed by looping through the
+desired parameters:
 
-```python
-for ia in [0, 2, 4, 6, 8, 10]:
-    for blc in [0.3, 0.4, 0.5, 0.6, 0.7]:
-        s = ptsd.Simulations()
-        s.PTEV = [1, 5, 10, 15, 20]
-        s.PTES = [0, 0.25, 0.5, 0.75, 1]
-        s.model_params = {":imaginal-activation" : ia,
-                          ":blc" : blc}
-        s.n = 100
-        s.max_time = 100000
-        s.run()
-        s.save_trace("trace_ia=%d_blc=%.2f.txt" % (ia, blc))
 
+```lisp
+(load "load-act-r.lisp")
+(load "ptsd.lisp")
+(setf sim (make-instance 'simulation))
+(setf (ptev sim) 
+      '(1 20 10 5 15))
+(setf (ptes sim)
+      '(0 1 0.5 0.25 0.75))
+(let ((ht (make-hash-table)))
+  (setf (gethash :imaginal-activation ht) %.1f)
+  (setf (gethash :bll ht) %.2f)
+  (setf (model-params sim) ht))
+
+(setf (logfile sim) "simulations_w=%.1f_bll=%.2f.txt") 
+(run-simulations sim)
+(quit)
 ```
-
-Note that the code assumes that ACT-R is running in the background; a
-fully-functional script would start an ACT-R process in the background
-and run the simulatins afterwards.
