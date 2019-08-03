@@ -139,11 +139,11 @@ desired parameters:
 (setf (ptes sim)
       '(0 1 0.5 0.25 0.75))
 (let ((ht (make-hash-table)))
-  (setf (gethash :imaginal-activation ht) %.1f)
-  (setf (gethash :bll ht) %.2f)
+  (setf (gethash :imaginal-activation ht) 10)
+  (setf (gethash :bll ht) 7/10)
   (setf (model-params sim) ht))
 
-(setf (logfile sim) "simulations_w=%.1f_bll=%.2f.txt") 
+(setf (logfile sim) "simulations_w=10_bll=0.6.txt") 
 (run-simulations sim)
 (quit)
 ```
