@@ -1,4 +1,5 @@
-# A simple ACT-R model of intrusive memories in PTSD 
+# Fast, Lisp-based implementation of the ACT-R model of intrusive
+  memories in PTSD 
 
 ## The "Fast" version of the PTSD code
 
@@ -21,14 +22,14 @@ general priciples are as such:
 
   3. All the commands setting have been removed from the
   `ptsd-model.lisp` file, and are instead set directly through Lisp
-  code at the beginnig of every simulation (_Note_: this is clearly
+  code at the beginnig of every simulation (__Note__: this is clearly
   where the Lisp code diverges from the Python code)
 
 In general, only two minor adjustments are 
 
 # Compatibility
 
-The "fast" Lisp code is __entirely incompatible_ with the Python
+The "fast" Lisp code is __entirely incompatible__ with the Python
 code. You can use one of the either, but not both. In fact, the Lisp
 code assumes that no JSON RPC system even exists, and replaces all of
 the command calls with Lisp-level hook functions.
