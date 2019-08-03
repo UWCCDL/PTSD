@@ -1,5 +1,4 @@
-# Fast, Lisp-based implementation of the ACT-R model of intrusive
-  memories in PTSD 
+# Fast, Lisp-based implementation of the ACT-R model of intrusive memories in PTSD 
 
 ## The "Fast" version of the PTSD code
 
