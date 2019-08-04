@@ -7,3 +7,9 @@
 # ignore emacs backups
 #*.*#
 *.*~
+
+# ignore stuff from Macs
+.DS*
+
+# Ignore simulation temporary files
+pids.txt
