@@ -29,7 +29,7 @@ In general, only two minor adjustments are
 # Compatibility
 
 The "fast" Lisp code is __entirely incompatible__ with the Python
-code. You can use one of the either, but not both. In fact, the Lisp
+code. You can use one or the other, but not both. In fact, the Lisp
 code assumes that no JSON RPC system even exists, and replaces all of
 the command calls with Lisp-level hook functions.
 
@@ -85,7 +85,7 @@ of the `mysim` object. The trace can be saved to a file:
 
 ## Parameters
 
-As in the Python code, Tthe following parameters can be set for each
+As in the Python code, the following parameters can be set for each
 simulation. This being Lisp code, none of the names are actually
 case-sensitive.
 
