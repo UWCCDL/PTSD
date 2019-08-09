@@ -1,7 +1,7 @@
 #library(matlab)
-data <- read.csv("sims_3.txt")
+data <- read.csv("fast/simulations1.txt")
 
-names(data)[1] <- "Run"
+#names(data)[1] <- "Run"
 
 data$Time <- round(data$Time/100)
 
@@ -9,11 +9,49 @@ data$Time <- round(data$Time/100)
 
 data$Block<-round(data$Time/25, 0)
 
-data$Block <- data$Block - 6
+data$Block <- data$Block - 12
 
-a <- aggregate(data[c("V", "Similarity")], list(Block=data$Block, PTEV=data$V_Traumatic), mean)
+a <- aggregate(data[c("Chunk", "ChunkSimilarity")],
+               list(Block=data$Block, PTEV=data$PTEV,
+                    S=data$PTES, W=data$IMAGINAL.ACTIVATION,
+                    BLL=data$BLL),
+               mean)
 
 source("functions.R")
+library(ggplot2)
+
+a$PTEV <- as.factor(a$PTEV)
+a$S <- as.factor(a$S)
+a$W <- as.factor(a$W)
+a$BLL <- as.factor(a$BLL)
+
+ggplot(subset(a, a$BLL == 0.9), aes(x=Block, y=Chunk, col=PTEV)) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  #stat_summary(fun.data = mean_se, geom="point") +
+  #stat_summary(fun.data = mean_se, geom="errorbar", width=.05) +
+  facet_wrap(~W * ~S) +
+  theme_linedraw()
+
+
+t <- aggregate(data[c("Traumatic")],
+               list(Block=data$Block, PTEV=data$PTEV,
+                    S=data$PTES, W=data$IMAGINAL.ACTIVATION,
+                    BLL=data$BLL),
+               mean)
+
+t$PTEV <- as.factor(a$PTEV)
+t$S <- as.factor(a$S)
+t$W <- as.factor(a$W)
+t$BLL <- as.factor(a$BLL)
+
+
+ggplot(subset(t, a$BLL == 0.9), aes(x=Block, y=Traumatic, col=PTEV)) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  #stat_summary(fun.data = mean_se, geom="point") +
+  #stat_summary(fun.data = mean_se, geom="errorbar", width=.05) +
+  facet_wrap(~W * ~S) +
+  theme_linedraw()
+
 
 plot.by.2factors(data, "V", "Block", "V_Traumatic", rng=c(0,12,2), legpos = "topleft",
                  colors = jet.colors(5))
