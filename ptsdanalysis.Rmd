@@ -68,7 +68,8 @@ for (bll in unique(a$BLL)) {
   p<-ggplot(subset(a, a$BLL == bll), aes(x=Day, y=Traumatic, col=PTEV)) +
     stat_summary(fun.data = mean_se, geom="line") +
     facet_wrap(~W * ~S) +
-    theme_linedraw()
+    theme_linedraw() +
+    ggtitle(paste("Decay rate =", bll))
   print(p)
 }
 ```
@@ -82,7 +83,8 @@ for (bll in unique(a$BLL)) {
   p<-ggplot(subset(a, a$BLL == bll), aes(x=Day, y=RetrievedV, col=PTEV)) +
     stat_summary(fun.data = mean_se, geom="line") +
     facet_wrap(~W * ~S) +
-    theme_linedraw()
+    theme_linedraw() +
+    ggtitle(paste("Decay rate =", bll))
   print(p)
 }
 
@@ -98,7 +100,9 @@ for (bll in unique(a$BLL)) {
   p<-ggplot(subset(a, a$BLL == bll), aes(x=Day, y=ChunkSimilarity, col=PTEV)) +
     stat_summary(fun.data = mean_se, geom="line") +
     facet_wrap(~W * ~S) +
-    theme_linedraw()
+    theme_linedraw() +
+    ggtitle(paste("Decay rate =", bll))
+
   print(p)
 }
 ```
