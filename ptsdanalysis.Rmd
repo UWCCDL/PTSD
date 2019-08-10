@@ -1,109 +1,104 @@
 ---
 title: "PTSD Model Analysis"
-author: "Andrea Stocco"
-date: "May 1, 2019"
+author: "Andrea Stocco & Briana Smith"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-library("ggplot2")
+library(ggplot2)
 library(tidyverse)
 library(matlab)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Analysis of the PTSD Model "Fast1" Simulations
+
+These simulations were run in July 2019, using the "fast" (lisp) version of the code.
+
 ## Loading the Data
 
-
-```{r, echo=FALSE}
-#library(matlab)
-source("functions.R")
-```
-
-First, we load the file produced by the most recent simulations (in this case, `sims_3.txt`).
-We will load the data and fix the first column name.
+First, we load the file produced by the `fast` simulations (in this case, `fast\simulations1.txt`).
 
 ```{r}
-data <- read.csv("mysim_09July19.txt")
-names(data)[1] <- "Run"
+data <- read.csv("fast/simulations1.txt")
 ```
 
-### Smoothing the Timestamps
+Because of a coding bug, the variable `RetrievedV`, which tracks the _V_ value of the chunk being retrieved, was accidentally named `Chunk`. We can easily fix that.
 
-Timestamps vary a bit because of the different retrieval times, which vary as function of similarity, history, and noise. To account fo this, we will round up the __Time__ variable to the hundreds. We wil also creqate a second variable, `Block`, which will be an approximation of Time, further rounding up 25 consecutive time points.  Finally, we will correct the __Block__ variable so that the PTE occurrs when __Block__ is zero.
+```{r}
+data <- rename(data, RetrievedV = Chunk)
+```
+
+## Smoothing the Timestamps
+
+Timestamps vary a bit because of the different retrieval times, which change as function of similarity, history, noise, and any other factor that affects a chunk's activation level.
+
+To account fo this, we will round up the __Time__ variable to the hundreds. We wil also create a second variable, `Day`, which will be an approximation of Time, further rounding up 25 consecutive time points. That corresponds to roughly a simulated day (12.5) for the model, not accounting for day/night cycles.
+
+Finally, we will offset the __Day__ variable so that the PTE occurrs when __Day__ is zero.
 
 ```{r}
 data$Time <- round(data$Time/100)
-data$Block<-round(data$Time/25, 0)
-data$Block <- data$Block - 6
+data$Day <- round(data$Time/25, 0)
+data$Day <- data$Day - 12
 ```
 
-At this point, we have sufficient time points for each value of __Block__ to plot smooth, rather than choppy, data lines. As a first step, we will average the values of _V_ and _Similarity_ across the different __Block__ values and values of the traumatic event __V_Traumatic__. 
+At this point, we have sufficient time points for each value of __Day__ to plot smooth, rather than choppy, data lines. As a first step, we will average the values of _V_ and _Similarity_ across the different __Day__ values and values of the traumatic event __PTEV__. 
 
-To keep consistent names, we will rename the ugly variable __V_Traumatic__ as __PTEV__ (for "Peritraumatic Event's _V_ Value").
 
 ```{r}
-a <- aggregate(data[c("V", "Similarity")], list(Block=data$Block, PTEV=data$PTEV), mean)
+a <- aggregate(data[c("RetrievedV", "ChunkSimilarity", "Traumatic")],
+               list(Day=data$Day, PTEV=data$PTEV,
+                    S=data$PTES, W=data$IMAGINAL.ACTIVATION,
+                    BLL=data$BLL),
+               mean)
 
-t <- aggregate(data[c("Traumatic")], list(Block=data$Block, PTEV=data$PTEV), sum)
+a$PTEV <- as.factor(a$PTEV)
+a$S <- as.factor(a$S)
+a$W <- as.factor(a$W)
+a$BLL <- as.factor(a$BLL)
+```
+
+## Incidence of Traumatic Memories after PTE
+
+In this and the other graphs, we will visualize the effects of different values of __PTEV__ across different measurs of similarity __S__ betweenthe traumatic event and the daily events (left to right) and across different measures __W__ of working memory capacity. Different 5 by 5 grids will generated for different levels of mekory decay __BLL__:
+
+```{r}
+for (bll in unique(a$BLL)) {
+  p<-ggplot(subset(a, a$BLL == bll), aes(x=Day, y=Traumatic, col=PTEV)) +
+    stat_summary(fun.data = mean_se, geom="line") +
+    facet_wrap(~W * ~S) +
+    theme_linedraw()
+  print(p)
+}
 ```
 
 ## Analysis of Effects of PTEV
 
-Now, we can consider how how the model fares, after the PTE, for different values of __PTEV__. First, we will consider the model's well-being. That is captured by the _V_ variable, which captues the mean value of the memories being retrieved. Increased retrieval of traumatic memories leads, of course, to increased _V_ values.
+Now, we can consider how how the model fares, after the PTE, for different values of __PTEV__. First, we will consider the model's well-being. That is captured by the __RetrievedV__ variable, which captues the mean value of the memories being retrieved. Increased retrieval of traumatic memories leads, of course, to increased __RetrievedV__ values.
 
 ```{r}
-plot.by.2factors(subset(a, a$Block >= -5), 
-                 "V", "Block", "PTEV", 
-                 rng=c(0,16,2), legpos = "topleft")
-abline(v=6, lty=3)
-
-ggplot(a, aes(x = Block, y = V, col=PTEV)) +
-  geom_line(aes(color=PTEV)) +
-  ylab("V)") +
-  xlab("Block") 
-
-```
-
-## Analysis of Effects of PTEV on Similarity
-
-We can also consider how well the model is doing cognitively. This is measured by the _Similarity_ between the retrieved response and the current context. As memories become more intrusive, the similarity is expected to decrease. Decreased similarity means that the response made is not as relevant to the current context.
-
-```{r}
-
-plot.by.2factors(subset(a, a$Block >= -5), 
-                 "Similarity", "Block", "PTEV", 
-                 rng=c(0.0 ,0.5, 0.05),
-                 legpos="bottomleft",
-                                  colors=jet.colors(5))
-abline(v=2, lty=3)
-
-
-```
-
-## Normalized Effects of PTEV
-
-Finally, we can re-analyze _V_ after the PTE, but normalizing the values of _V_ by the max value that is expected. This will give us a comparable graph to that of Di Martino, which does not use absolute values for well-being. To make the plot readable, we will normalize only the activity after the PTEV, and set the previous response to zero.
-
-```{r}
-norm <- tapply(a$V, a$PTEV, max)
-na <- a # Normed A-data
-for (p in unique(na$PTEV)) {
-  na$V[na$Block>0 & na$PTEV == p] <- na$V[a$Block>0 & a$PTEV == p] / max(a$V[na$Block>6 & a$PTEV == p])
-  na$V[na$Block<=0 & na$PTEV == p] <- 0
+for (bll in unique(a$BLL)) {
+  p<-ggplot(subset(a, a$BLL == bll), aes(x=Day, y=RetrievedV, col=PTEV)) +
+    stat_summary(fun.data = mean_se, geom="line") +
+    facet_wrap(~W * ~S) +
+    theme_linedraw()
+  print(p)
 }
-plot.by.2factors(na, "V", "Block", "PTEV", rng=c(0,1,0.1), legpos = "topleft")
-abline(v=7, lty=3)
+
 ```
 
+## Analysis of Effects of PTE on Cognitive Function
 
-# Frequency of traumatic memories
+We can also consider how well the model is doing cognitively. This is measured by the __ChunkSimilarity__ between the retrieved response and the current context. As memories become more intrusive, the similarity is expected to decrease. Decreased similarity means that the response made is not as relevant to the current context.
 
 ```{r}
-plot.by.2factors(subset(t, t$Block >= -5), 
-                 "Traumatic", "Block", "PTEV",
-                 legpos = "topleft",
-                 rng=c(0,40,10),
-                 colors=jet.colors(5))
-abline(v=6, lty=3)
+
+for (bll in unique(a$BLL)) {
+  p<-ggplot(subset(a, a$BLL == bll), aes(x=Day, y=ChunkSimilarity, col=PTEV)) +
+    stat_summary(fun.data = mean_se, geom="line") +
+    facet_wrap(~W * ~S) +
+    theme_linedraw()
+  print(p)
+}
 ```
