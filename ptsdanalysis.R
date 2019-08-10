@@ -44,7 +44,6 @@ t$S <- as.factor(a$S)
 t$W <- as.factor(a$W)
 t$BLL <- as.factor(a$BLL)
 
-
 ggplot(subset(t, a$BLL == 0.9), aes(x=Block, y=Traumatic, col=PTEV)) +
   stat_summary(fun.data = mean_se, geom="line") +
   #stat_summary(fun.data = mean_se, geom="point") +

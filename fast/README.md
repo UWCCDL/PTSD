@@ -41,7 +41,7 @@ ACT-R, then you (obviously) do not need to load ACT-R. Otherwise, you
 need to load ACT-R by typing the following command on your REPL prompt:
 
 ```lisp
-(load "<path/to/actr/load-act-r.lisp")
+(load "/path/to/actr/load-act-r.lisp")
 ```
 
 To start a simulation, one must first load the `ptsd` file:
@@ -67,7 +67,7 @@ value, and a maximum duration of 100,000 seconds, one would type this:
 ```lisp
 (setf (ptev mysim) '(2 5))
 (setf (n mysim) 100)
-(sef (max-time mysim) 100000)
+(setf (max-time mysim) 100000)
 ```
 
 The entire simulation can be executed through the `run-simulations` method:
@@ -75,6 +75,8 @@ The entire simulation can be executed through the `run-simulations` method:
 ```lisp
 (run-simulations mysim)
 ```
+
+(__Note__: the Lisp code `run-simulations` replaces the `run` method in Python. It had to be renamed because the `run` function is already defined by ACT-R).
 
 Once the simulation is done, the data is saved in the `TRACE` variable
 of the `mysim` object. The trace can be saved to a file:
