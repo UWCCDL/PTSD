@@ -1,5 +1,5 @@
 #library(matlab)
-data <- read.csv("fast/simulations1.txt")
+data <- read.csv(unzip("fast/simulations1/merged.zip"))
 
 #names(data)[1] <- "Run"
 

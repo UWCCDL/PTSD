@@ -20,13 +20,13 @@ These simulations were run in July 2019, using the "fast" (lisp) version of the 
 First, we load the file produced by the `fast` simulations (in this case, `fast\simulations1.txt`).
 
 ```{r}
-data <- read.csv("fast/simulations1.txt")
+data <- read.csv(unzip("fast/simulations1/merged.zip"))
 ```
 
 Because of a coding bug, the variable `RetrievedV`, which tracks the _V_ value of the chunk being retrieved, was accidentally named `Chunk`. We can easily fix that.
 
 ```{r}
-data <- rename(data, RetrievedV = Chunk)
+data <- rename(data, RetrievedV = ChunkV)
 ```
 
 ## Smoothing the Timestamps
