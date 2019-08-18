@@ -15,7 +15,7 @@ import string
 ## ---------------------------------------------------------------- ##
 
 class PTSD_Object:
-    
+
     def chunk_similarity(self, chunk1, chunk2):
         """
         Calculates the similarity between two chunks. Currently,
@@ -41,7 +41,7 @@ class Simulation(PTSD_Object):
         self.model = model
         self._currentV = 0
         self.PTEV = 10        # Potentially Traumatic Event Value
-        self.PTET = 600 * 30  # Potentially Traumatic Event Time
+        self.PTET = [600 * 20, 600 * 30, 600 * 40, 600 * 50, 600 * 60]  # Potentially Traumatic Event Time
         self.PTES = 0.0       # Similarity of PTE to other chunks ([0,1] range)
         self.max_time = 50000 # Max duration of a simulation
         self.event_step = 600 # Interval between events to be experienced
@@ -59,7 +59,7 @@ class Simulation(PTSD_Object):
         #self._slot_names = tuple("SLOT" + "%d" % (x + 1,) for x in range(10))
 
     # --- READ-ONLY PROPERTIES -------------------------------------- #
-        
+
     @property
     def currentV(self):
         return self._currentV
@@ -67,7 +67,7 @@ class Simulation(PTSD_Object):
     @property
     def currentS(self):
         return self._currentS
-    
+
     @property
     def slot_values(self):
         return self._slot_values
@@ -81,7 +81,7 @@ class Simulation(PTSD_Object):
         return self._slot_names
 
     # --- READ/WRITE PROPERTIES ------------------------------------- #
-    
+
     @property
     def PTEV(self):
         return self._PTEV
@@ -94,7 +94,7 @@ class Simulation(PTSD_Object):
         elif type(val) in [list, tuple]:
             self._PTEV = val
             self._currentV = val[0]
-            
+
 
     @property
     def PTES(self):
@@ -137,7 +137,7 @@ class Simulation(PTSD_Object):
         self._num_slots = val
         self._slot_values = tuple(x for x in string.ascii_lowercase[:val])
         self._traumatic_slot_values = tuple(x for x in string.ascii_lowercase[-val:])
-        
+
 
 
     # --- METHODS -------------------------------------------------- #
@@ -157,14 +157,14 @@ class Simulation(PTSD_Object):
             for j in range(n_changes):
                 template[j] = True
             T = ["traumatic", "yes"]
-            
+
         else:
             T = ["traumatic", "no"]
-            
+
         rnd.shuffle(template)
 
         slots = ['isa', 'memory', 'kind', 'memory']
-        
+
         for j, slot in enumerate(template):
             if slot:
                 random_attribute = rnd.choice(self.traumatic_slot_values)
@@ -188,7 +188,7 @@ class Simulation(PTSD_Object):
             newdef = self.generate_random_memory(traumatic=True)
         else:
             newdef = self.generate_random_memory(traumatic=False)
-            
+
         newchunk = actr.define_chunks(newdef[0])
         actr.set_buffer_chunk(buffer, newchunk[0])
 
@@ -223,7 +223,7 @@ class Simulation(PTSD_Object):
                     v2 = self.vectorize_memory(chunk)
                     sim = self.chunk_similarity(source, chunk)
                     w = actr.get_parameter_value(":imaginal-activation")
-                    
+
                     if w is None:
                         w = 0.0
 
@@ -241,7 +241,7 @@ class Simulation(PTSD_Object):
             param_values = []
             for param in sorted(self.model_params.keys()):
                 param_values.append(self.model_params[param])
-                
+
             source = actr.buffer_chunk("imaginal")[0]
             v = self.V_TABLE[chunk]
             s = self.chunk_similarity(chunk, source)
@@ -253,7 +253,7 @@ class Simulation(PTSD_Object):
 
     def simulate(self):
         """Runs a single simulation"""
- 
+
         # Add commands and hooks
         actr.add_command("v_offset", self.chunk_v_term,
                          "Extra term in activation")
@@ -280,7 +280,7 @@ class Simulation(PTSD_Object):
         # Apply the set of provided parameters
         for param, value in self.model_params.items():
             actr.set_parameter_value(param, value)
-        
+
         # Run a life simulation
 
         event_time = 0.0
@@ -315,11 +315,11 @@ class Simulation(PTSD_Object):
             for s in self.PTES:
                 self._currentV = v
                 self._currentS = s
-                
+
                 if verbose:
                     print("V = %.2f, S = %.2f: " % (v, s), end="")
                     sys.stdout.flush()
-                    
+
                 for j in range(self.n):
                     if verbose and (j % 5) == 0.0:
                         print(".", end="")
@@ -339,7 +339,7 @@ class Simulation(PTSD_Object):
         header = "Run,PTEV,Time,V,Traumatic,Similarity"
         for param in sorted(self.model_params.keys()):
             header += (",%s" % param)
-            
+
         np.savetxt(fname,
                    self.TRACE,
                    delimiter=",",
