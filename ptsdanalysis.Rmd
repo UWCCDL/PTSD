@@ -74,6 +74,21 @@ for (bll in unique(a$BLL)) {
 }
 ```
 
+### Same analysis, but by this time by _V_
+
+```{r}
+for (V in unique(a$PTEV)) {
+  p<-ggplot(subset(a, a$PTEV == V), aes(x=Day, y=Traumatic, col=S)) +
+    stat_summary(fun.data = mean_se, geom="line") +
+    facet_wrap(~W * ~BLL) +
+    theme_linedraw() +
+    ggtitle(paste("Decay rate =", bll))
+  print(p)
+}
+
+```
+
+
 ## Analysis of Effects of PTEV
 
 Now, we can consider how how the model fares, after the PTE, for different values of __PTEV__. First, we will consider the model's well-being. That is captured by the __RetrievedV__ variable, which captues the mean value of the memories being retrieved. Increased retrieval of traumatic memories leads, of course, to increased __RetrievedV__ values.
@@ -89,7 +104,6 @@ for (bll in unique(a$BLL)) {
 }
 
 ```
-
 ## Analysis of Effects of PTE on Cognitive Function
 
 We can also consider how well the model is doing cognitively. This is measured by the __ChunkSimilarity__ between the retrieved response and the current context. As memories become more intrusive, the similarity is expected to decrease. Decreased similarity means that the response made is not as relevant to the current context.
