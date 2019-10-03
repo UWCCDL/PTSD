@@ -184,7 +184,7 @@ class Simulation(PTSD_Object):
 
     def present_new_situation(self, buffer="imaginal"):
         """Creates a new situation for the model and presents to the WHERE buffer"""
-        if actr.mp_time() == self.PTET:
+        if actr.mp_time() in self.PTET:
             newdef = self.generate_random_memory(traumatic=True)
         else:
             newdef = self.generate_random_memory(traumatic=False)
