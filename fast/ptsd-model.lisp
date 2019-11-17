@@ -36,7 +36,7 @@
 
 ;;; Internal goal
 ;;;
-(chunk-type task processed)
+(chunk-type task processed rumination)
 
 ;;; Memory attributes (chunk slot values for memories)
 ;;;
@@ -64,8 +64,10 @@
 ;;; Basically, the entire agent is a knowledgeless
 ;;; perceive-retrieve-respond loop.
 ;;; ---------------------------------------------------------------- #
- 
-(p face-situation
+
+;;; STEP 1: PERCEIVE
+
+(p perceive
    "Realizes a new situation is present, and sets a goal to process it"
    ?goal>
      state free
@@ -79,6 +81,7 @@
       isa task
       processed no)
 
+;;; STEP 2: RETRIEVE
 
 (p retrieve
     "Retrieves an appropriate chunk to respond to the current context"
@@ -92,8 +95,9 @@
     +retrieval>
       kind memory)
 
+;;; STEP 3: RESPOND
 
-(p elaborate
+(p respond
     "Use the retrieved memory to respond appropriately to the current context"
     =goal>
       processed no
@@ -122,8 +126,7 @@
      -imaginal>
 )
 
-
- (p solved
+(p solved
     "Pops the goal"
     =goal>
       processed yes

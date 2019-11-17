@@ -1,7 +1,16 @@
+;;; -------------------------------------------------------------- ;;;
 ;;; PTSD SIMULATION CODE FOR FAST EXECUTION
+;;; -------------------------------------------------------------- ;;;
+;;; (c) 2019, Briana Smith and Andrea Stocco
+;;; University of Washington, Seattle, WA 98195
+;;; -------------------------------------------------------------- ;;;
 
-(defconstant *letters* '(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z)
-  "Letters are used as stimulus attributes")
+(ql:quickload "cl-mathstats")
+
+(defconstant +letters+ '(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z)
+  "Letters are used as symbolic stimulus attributes")
+
+(defconstant +minutes-per-day+ (* 60 24))
 
 ;;; -------------------------------------------------------------- ;;;
 ;;; UTILITIES
@@ -49,6 +58,15 @@
     (mapcar #'(lambda (x) (elt lst x)) (scramble pos))))
 
 
+(defun dgamma (x shape scale)
+  "Gamma distribution with given shape and scale"
+  (let ((rate (/ 1 scale)))
+    (/ (* (expt rate shape)
+          (expt x (- shape 1))
+          (exp (* -1 rate x)))
+       (exp (cl-mathstats:gamma-ln shape)))))
+    
+
 ;;; -------------------------------------------------------------- ;;;
 ;;; SIMULATION OBJECT AND METHODS
 ;;; -------------------------------------------------------------- ;;;
@@ -91,12 +109,12 @@
 
 (defmethod traumatic-slot-values ((s simulation))
   "Returns the list of attributes used for traumatic memories"
-  (subseq (reverse *letters*) 0 (num-slots s))) 
+  (subseq (reverse +letters+) 0 (num-slots s))) 
 
 
 (defmethod slot-values ((s simulation))
   "Returns the list of attributes used for non-traumatic memories"
-  (subseq *letters* 0 (num-slots s))) 
+  (subseq +letters+ 0 (num-slots s))) 
 
 (defmethod set-model-parameter ((s simulation) param value)
   (when (keywordp param)
@@ -117,7 +135,7 @@
   (intern (string-upcase (format nil "SLOT~A" num))))
 
 
-(defmethod generate-random-memory ((s simulation) &optional (traumatic nil))
+(defmethod generate-random-event ((s simulation) &optional (traumatic nil))
   "Generates a random memory"
   (let ((template (make-list (num-slots s) :initial-element nil))
         (tslot '(traumatic no))
@@ -140,14 +158,15 @@
     (setf slots (append slots tslot))))
 
       
-(defmethod present-new-situation ((s simulation) &optional (buffer 'imaginal))
+(defmethod present-new-event ((s simulation) &optional (buffer 'imaginal))
   "Presents a new situation to the model"
-  (let* ((newdef (generate-random-memory s (= (mp-time)
-                                              (ptet s))))
-         (newchunk (first (define-chunks-fct (list newdef)))))
-    ;;(when (= (mp-time) (ptet s))
-    ;;  (print newchunk))
-    (set-buffer-chunk buffer newchunk)))
+  (when (query-buffer buffer '(state free
+                               error nil
+                               buffer empty))
+    (let* ((newdef (generate-random-event s (= (mp-time)
+                                               (ptet s))))
+           (newchunk (first (define-chunks-fct (list newdef)))))
+      (set-buffer-chunk buffer newchunk))))
     
 
 (defmethod chunk-v-term ((s simulation) chunk)
@@ -282,11 +301,25 @@
   ;; Run
   (let ((time 0))
     (while (< time (max-time s))
-      (schedule-event time #'present-new-situation :params (list s))
+      (schedule-event time #'present-new-event :params (list s))
       (incf time (event-step s))))
 
   (run (max-time s)))
-  
+
+
+(defun generate-timeline (density n-before n-after
+                          &key (gamma-shape 2.0) (gamma-scale 175))
+  "Generate a time-line of events given a probability density function"
+  (let ((queue nil)
+        (n-days (+ n-before n-after)))
+    (dotimes (day n-days (reverse queue))
+      (dotimes (minute +minutes-per-day+)
+        (when (> (* (dgamma minute gamma-shape gamma-scale)
+                    density)
+                 (random 1.0))
+          (push (+ (* day +minutes-per-day+)
+                   minute)
+                queue))))))
 
 (defmethod run-simulations ((s simulation))
   (setf (model-trace s) nil)
@@ -295,7 +328,6 @@
       (setf (current-v s) v-val)
       (setf (current-s s) s-val)
       (dotimes (ii (n s))
-        ;;(print (list v-val s-val ii))
         (setf (counter s) ii)
         (simulate s))))
   (unless (null (logfile s))

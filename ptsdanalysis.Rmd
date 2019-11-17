@@ -47,7 +47,7 @@ At this point, we have sufficient time points for each value of __Day__ to plot 
 
 
 ```{r}
-a <- aggregate(data[c("RetrievedV", "ChunkSimilarity", "Traumatic")],
+a <- aggregate(data[c("ChunkV", "ChunkSimilarity", "Traumatic")],
                list(Day=data$Day, PTEV=data$PTEV,
                     S=data$PTES, W=data$IMAGINAL.ACTIVATION,
                     BLL=data$BLL),
@@ -82,14 +82,14 @@ for (V in unique(a$PTEV)) {
     stat_summary(fun.data = mean_se, geom="line") +
     facet_wrap(~W * ~BLL) +
     theme_linedraw() +
-    ggtitle(paste("Decay rate =", bll))
+    ggtitle(paste("V =", V))
   print(p)
 }
 
 ```
 
 
-## Analysis of Effects of PTEV
+## Model Well-Being After a PTE
 
 Now, we can consider how how the model fares, after the PTE, for different values of __PTEV__. First, we will consider the model's well-being. That is captured by the __RetrievedV__ variable, which captues the mean value of the memories being retrieved. Increased retrieval of traumatic memories leads, of course, to increased __RetrievedV__ values.
 
