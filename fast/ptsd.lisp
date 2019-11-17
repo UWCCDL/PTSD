@@ -98,6 +98,10 @@
               :initform 0)
    (v-table :accessor v-table
             :initform (make-hash-table))
+   (num-days-before :accessor num-days-before
+                    :initform 100)
+   (num-days-after :accessor num-days-after
+                   :initform 60)
    (slot-names :accessor slot-names
                :initform '(slot1 slot2 slot3 slot4 slot5 slot6)) 
    (model-trace :accessor model-trace
@@ -116,15 +120,21 @@
   "Returns the list of attributes used for non-traumatic memories"
   (subseq +letters+ 0 (num-slots s))) 
 
+
 (defmethod set-model-parameter ((s simulation) param value)
+  "Sets the value of ACT-R parameters for the current simulation" 
   (when (keywordp param)
     (setf (gethash param (model-params s))
           value)))
 
+
 (defmethod get-model-parameters ((s simulation))
+  "Returns the names of ACT-R parameters that are modified in the current simulation" 
   (sort (hash-table-keys (model-params s)) #'string-lessp))
 
+
 (defmethod get-model-parameter-values ((s simulation))
+  "Returns the values of the ACT-R parameters set in the current simulation"
   (let ((hash (model-params s)))
     (mapcar #'(lambda (x)
                 (gethash x hash))
@@ -285,39 +295,41 @@
     (dolist (key (hash-table-keys params))
       (set-parameter-value key (gethash key params)))) 
 
-  ;; Load the basic chunks
-
-  
-  ;;(add-dm (a) (b) (c) (d) (e) (f) (g) (h)
-  ;;        (i) (j) (k) (l) (m) (n) (o) (p)
-  ;;        (q) (r) (s) (t) (u) (v) (w) (x)
-  ;;        (y) (z) (yes) (no) (memory))
-
   ;; Resets simulations
   
   (setf (v-table s) (make-hash-table))
   ;;(setf (model-trace s) nil)
 
   ;; Run
-  (let ((time 0))
-    (while (< time (max-time s))
-      (schedule-event time #'present-new-event :params (list s))
-      (incf time (event-step s))))
+  ;;(let ((time 0))
+  ;;  (while (< time (max-time s))
+  ;;    (schedule-event time #'present-new-event :params (list s))
+  ;;    (incf time (event-step s))))
 
-  (run (max-time s)))
+  (let ((ptet (list (* (num-days-before s) +minutes-per-day+)))
+        (before (generate-timeline 10
+                                   0
+                                   (num-days-before s)))
+        (after (generate-timeline 10
+                                  (num-days-before s)
+                                  (num-days-after s))))
+    
+    (dolist (j (append before ptet after))
+       (schedule-event (* 60 j) #'present-new-event :params (list s))))
+  (run (* 60 +minutes-per-day+ (+ (num-days-before s)
+                                  (num-days-after s)))))
 
 
-(defun generate-timeline (density n-before n-after
+(defun generate-timeline (density start-day end-day
                           &key (gamma-shape 2.0) (gamma-scale 175))
   "Generate a time-line of events given a probability density function"
-  (let ((queue nil)
-        (n-days (+ n-before n-after)))
-    (dotimes (day n-days (reverse queue))
+  (let ((queue nil))
+    (dotimes (day end-day  (reverse queue))
       (dotimes (minute +minutes-per-day+)
         (when (> (* (dgamma minute gamma-shape gamma-scale)
                     density)
                  (random 1.0))
-          (push (+ (* day +minutes-per-day+)
+          (push (+ (* (+ start-day day) +minutes-per-day+)
                    minute)
                 queue))))))
 
