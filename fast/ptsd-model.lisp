@@ -40,9 +40,10 @@
 
 ;;; Memory attributes (chunk slot values for memories)
 ;;;
-(chunk-type memory kind slot1 slot2 slot3
-            slot4 slot5 slot6 slot7 slot8
-            slot9 slot10 traumatic)
+(chunk-type memory kind q1 q2 q3
+            q4 q5 q6 q7 q8 q9 q10
+            q11 q12 q13 q14 q15
+            traumatic)
 
 ;;; ** Currently unused **
 (chunk-type situation kind value)
@@ -50,7 +51,7 @@
 
 ;;; ---- DECLARATIVE KNOWLEDGE ------------------------------------- #
 
-;;; Chunk attributes (i.e., slot values)
+;;; Chunk attributes (i.e., q values)
 ;;;
 ;;(add-dm (a) (b) (c) (d) (e) (f) (g) (h)
 (define-chunks (a) (b) (c) (d) (e) (f) (g) (h)

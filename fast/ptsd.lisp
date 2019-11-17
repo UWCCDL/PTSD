@@ -10,7 +10,9 @@
 (defconstant +letters+ '(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z)
   "Letters are used as symbolic stimulus attributes")
 
-(defconstant +minutes-per-day+ (* 60 24))
+(defconstant +minutes-per-day+ (* 60 24)
+  "Handy constant to aoid recalculating the num of minutes in a day")
+
 
 ;;; -------------------------------------------------------------- ;;;
 ;;; UTILITIES
@@ -80,18 +82,18 @@
          :initform '(1 5 10))
    (ptes :accessor ptes
          :initform '(0 0.5 1))
-   (ptet :accessor ptet
-         :initform (* 60 500))
-   (max-time :accessor max-time
-             :initform 200000)
+   ;;(ptet :accessor ptet          ;; Deprecated
+   ;;      :initform (* 60 500))
+   ;;(max-time :accessor max-time  ;; Deprecated
+   ;;          :initform 200000)
    (event-step :accessor event-step
                :initform (* 60 20))
    (counter :accessor counter
             :initform 0)
    (num-slots :accessor num-slots
-              :initform 6)
+              :initform 10)
    (num-attributes :accessor num-attributes
-                   :initform 6)
+                   :initform 4)
    (current-v :accessor current-v
               :initform 1)
    (current-s :accessor current-s
@@ -102,25 +104,51 @@
                     :initform 100)
    (num-days-after :accessor num-days-after
                    :initform 60)
-   (slot-names :accessor slot-names
-               :initform '(slot1 slot2 slot3 slot4 slot5 slot6)) 
+   (slot-names :accessor slot-names  ;; Deprecated
+               :initform '(q1 q2 q3 q4 q5 q6)) 
    (model-trace :accessor model-trace
                 :initform nil)
    (model-params :accessor model-params
                  :initform (make-hash-table))
+   (event-frequency :accessor event-frequency
+                    :initform 20)
+   (rumination-frequency :accessor rumination-frequency
+                         :initform 0)
    (logfile :accessor logfile
-            :initform nil)))
+            :initform nil)
+   ;;
+   (slot-values :accessor slot-values
+                :initform (subseq +letters+ 0 4))
+   (traumatic-slot-values :accessor traumatic-slot-values
+                          :initform   (subseq (reverse +letters+) 0 4))))
 
-(defmethod traumatic-slot-values ((s simulation))
-  "Returns the list of attributes used for traumatic memories"
-  (subseq (reverse +letters+) 0 (num-slots s))) 
+(defmethod init ((s simulation))
+  "Prepares all the internal values for a simulation"
+  (setf (slot-names s)
+        (mapcar #'make-slot-name (seq 1 (1+ (num-slots s)))))
+  (setf (slot-values s)
+        (subseq +letters+ 0 (num-attributes s)))
+  (setf (traumatic-slot-values s)
+        (subseq (reverse +letters+) 0 (num-attributes s))))
+
+(defmethod ptet ((s simulation))
+  (* 60 +minutes-per-day+ (num-days-before s)))
 
 
-(defmethod slot-values ((s simulation))
-  "Returns the list of attributes used for non-traumatic memories"
-  (subseq +letters+ 0 (num-slots s))) 
+;;(defmethod traumatic-slot-values ((s simulation))
+;;  "Returns the list of attributes used for traumatic memories"
+;;  (subseq (reverse +letters+) 0 (num-attributes s))) 
 
 
+;;(defmethod slot-values ((s simulation))
+;;  "Returns the list of attributes used for non-traumatic memories"
+;;  (subseq +letters+ 0 (num-attributes s))) 
+
+
+;;(defmethod slot-names ((s simulation))  
+;;  (mapcar #'make-slot-name (seq 1 (1+ (num-slots s)))))
+
+  
 (defmethod set-model-parameter ((s simulation) param value)
   "Sets the value of ACT-R parameters for the current simulation" 
   (when (keywordp param)
@@ -142,7 +170,7 @@
 
 (defun make-slot-name (num)
   "Generates a symbol 'SLOT<N>', with N being an integer number"
-  (intern (string-upcase (format nil "SLOT~A" num))))
+  (intern (string-upcase (format nil "Q~A" num))))
 
 
 (defmethod generate-random-event ((s simulation) &optional (traumatic nil))
@@ -275,6 +303,7 @@
 
          
 (defmethod simulate ((s simulation))
+  (init s)
   (load "ptsd-model.lisp")
   ;;; Set hooks
   (set-parameter-value :activation-offsets #'(lambda (chunk)
@@ -308,16 +337,16 @@
   ;;    (incf time (event-step s))))
   ;;(run (max-time s))
 
-  (let ((ptet (list (* (num-days-before s)
-                       +minutes-per-day+)))
-        (before (generate-timeline 10
+  (let ((pte (list (* (num-days-before s)
+                      +minutes-per-day+)))
+        (before (generate-timeline (event-frequency s)
                                    0
                                    (num-days-before s)))
-        (after (generate-timeline 10
+        (after (generate-timeline (event-frequency s)
                                   (num-days-before s)
                                   (num-days-after s))))
     
-    (dolist (j (append before ptet after))
+    (dolist (j (append before pte after))
        (schedule-event (* 60 j) #'present-new-event :params (list s))))
   (run (* 60 +minutes-per-day+ (+ (num-days-before s)
                                   (num-days-after s)))))
