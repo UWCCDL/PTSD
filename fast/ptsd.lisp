@@ -208,7 +208,8 @@
          (length v1)))))
   
 
-(defmethod modified-spreading-activation ((s simulation) chunk
+(defmethod modified-spreading-activation ((s simulation)
+                                          chunk
                                           &optional (buffer 'imaginal))
   (let ((source (no-output (buffer-chunk-fct (list buffer)))))
     (when (> (length source) 0)
@@ -300,13 +301,15 @@
   (setf (v-table s) (make-hash-table))
   ;;(setf (model-trace s) nil)
 
-  ;; Run
+  ;;** OLD CODE **
   ;;(let ((time 0))
   ;;  (while (< time (max-time s))
   ;;    (schedule-event time #'present-new-event :params (list s))
   ;;    (incf time (event-step s))))
+  ;;(run (max-time s))
 
-  (let ((ptet (list (* (num-days-before s) +minutes-per-day+)))
+  (let ((ptet (list (* (num-days-before s)
+                       +minutes-per-day+)))
         (before (generate-timeline 10
                                    0
                                    (num-days-before s)))
@@ -332,6 +335,7 @@
           (push (+ (* (+ start-day day) +minutes-per-day+)
                    minute)
                 queue))))))
+
 
 (defmethod run-simulations ((s simulation))
   (setf (model-trace s) nil)

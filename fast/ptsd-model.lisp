@@ -17,7 +17,7 @@
      :ans 0.6
 
      ;; Enable WM effects through spreading activation
-     :mas 10.0
+     :mas 100.0
      :imaginal-activation 5.0
      
      ;; Adds V term for base-level activation

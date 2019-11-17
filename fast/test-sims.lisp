@@ -1,0 +1,7 @@
+(load "/actr/actr7.x/load-act-r.lisp")
+(load "/home/andrea/Documents/Research/PTSD/fast/ptsd.lisp")
+(let ((s (make-instance 'simulation)))
+  (setf (logfile s) "test-sims-log.txt")
+  (simulate s)
+  (save-trace s))
+(quit)
