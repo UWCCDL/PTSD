@@ -1,5 +1,0 @@
-TODOs
-
-* Make sure that new events are not presented if processes are still
-  ongoing.
-* Tranform units from seconds to days for long-range simulations 

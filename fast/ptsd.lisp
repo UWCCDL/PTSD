@@ -301,7 +301,7 @@
 
 (defparameter *colnames*
   '("Run" "PTEV" "PTES" "NumSlots"
-    "NumAttributes" "Time" "ChunkV" "ChunkSimilarity")
+    "NumAttributes" "Time" "ChunkV" "Traumatic" "ChunkSimilarity")
   "Names of the fundametal values to log")
 
 
@@ -311,11 +311,11 @@
                        :if-exists :append
                        :if-does-not-exist :create)
     (when header
-      (format fle "~{~A~^, ~}~%"
+      (format fle "~{~A~^,~}~%"
               (append *colnames* (get-model-parameters s))))
     
     (dolist (row (model-trace s))
-      (format fle "~{~5,f~^, ~}~%" row))))
+      (format fle "~{~,4f~^,~}~%" row))))
 
 
 (defun generate-timeline (density start-day end-day
