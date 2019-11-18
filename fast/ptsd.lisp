@@ -123,6 +123,9 @@
                          :initform 0)
    (logfile :accessor logfile
             :initform nil)
+
+   (automatic-save-trace :accessor automatic-save-trace
+                         :initform t)
    
    ;; These are values that will be stored during initialization
    ;; so that can be read out without the need to recaclulate them
@@ -302,14 +305,31 @@
   "Names of the fundametal values to log")
 
 
-(defmethod save-trace ((s simulation))
+(defmethod save-trace ((s simulation) &optional (header t))
   (with-open-file (fle (logfile s)
                        :direction :output
-                       :if-exists :overwrite
+                       :if-exists :append
                        :if-does-not-exist :create)
-    (format fle "~{~A~^, ~}~%" (append *colnames* (get-model-parameters s)))
+    (when header
+      (format fle "~{~A~^, ~}~%"
+              (append *colnames* (get-model-parameters s))))
+    
     (dolist (row (model-trace s))
       (format fle "~{~5,f~^, ~}~%" row))))
+
+
+(defun generate-timeline (density start-day end-day
+                          &key (gamma-shape 2.0) (gamma-scale 175))
+  "Generate a time-line of events given a probability density function"
+  (let ((queue nil))
+    (dotimes (day end-day  (reverse queue))
+      (dotimes (minute +minutes-per-day+)
+        (when (> (* (dgamma minute gamma-shape gamma-scale)
+                    density)
+                 (random 1.0))
+          (push (+ (* (+ start-day day) +minutes-per-day+)
+                   minute)
+                queue))))))
 
          
 (defmethod simulate ((s simulation))
@@ -318,6 +338,7 @@
   ;;; Set hooks
   (set-parameter-value :activation-offsets #'(lambda (chunk)
                                                (chunk-v-term s chunk)))
+
   (set-parameter-value :chunk-add-hook #'(lambda (chunk)
                                            (add-chunk s chunk)))
 
@@ -359,22 +380,13 @@
     (dolist (j (append before pte after))
        (schedule-event (* 60 j) #'present-new-event :params (list s))))
   (run (* 60 +minutes-per-day+ (+ (num-days-before s)
-                                  (num-days-after s)))))
+                                  (num-days-after s))))
 
-
-(defun generate-timeline (density start-day end-day
-                          &key (gamma-shape 2.0) (gamma-scale 175))
-  "Generate a time-line of events given a probability density function"
-  (let ((queue nil))
-    (dotimes (day end-day  (reverse queue))
-      (dotimes (minute +minutes-per-day+)
-        (when (> (* (dgamma minute gamma-shape gamma-scale)
-                    density)
-                 (random 1.0))
-          (push (+ (* (+ start-day day) +minutes-per-day+)
-                   minute)
-                queue))))))
-
+  (when (and (automatic-save-trace s)
+             (logfile s))
+    (save-trace s (not (probe-file (logfile s))))
+    (setf (model-trace s) nil)))
+  
 
 (defmethod run-simulations ((s simulation))
   (setf (model-trace s) nil)
@@ -385,7 +397,8 @@
       (dotimes (ii (n s))
         (setf (counter s) ii)
         (simulate s))))
-  (unless (null (logfile s))
+  (unless (or (null (logfile s))
+              (automatic-save-trace s))
     (save-trace s)))
 
 ;;; -------------------------------------------------------------- ;;;
@@ -398,3 +411,17 @@
           #'>)))
 
 
+(defun memory-purge (cap)
+  (let* ((ltm (sort (no-output (sdm kind memory))
+                    #'>
+                    :key (first (get-base-level-fct `(,x)))))
+         (size (length ltm)))
+    (when (> size cap)
+      (dolist (chunk (subseq ltm cap))
+        (delete-chunk chunk))))) 
+
+
+(defun quick-test ()
+  (setf sim (make-instance 'simulation))
+  (setf (current-v s) 20)
+  (simulate s))

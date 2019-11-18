@@ -12,9 +12,10 @@
 
 (sgp :esc t
      :er t
-     :bll 0.3
+     :bll 0.1
      :blc 1.0
-     :ans 0.6
+     :ans 0.2
+     :ol nil
 
      ;; Enable WM effects through spreading activation
      :mas 100.0
