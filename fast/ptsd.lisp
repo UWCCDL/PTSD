@@ -5,7 +5,7 @@
 ;;; University of Washington, Seattle, WA 98195
 ;;; -------------------------------------------------------------- ;;;
 
-(ql:quickload "cl-mathstats")
+;;;(ql:quickload "cl-mathstats")
 
 (defconstant +letters+ '(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z)
   "Letters are used as symbolic stimulus attributes")
@@ -60,13 +60,20 @@
     (mapcar #'(lambda (x) (elt lst x)) (scramble pos))))
 
 
+(defun gamma-stirling (x)
+  "Stirling approximation to Gamma function"
+  (* (sqrt (* 2 (/ PI x)))
+     (expt (/ x (exp 1)) x)))
+
+
 (defun dgamma (x shape scale)
   "Gamma distribution with given shape and scale"
   (let ((rate (/ 1 scale)))
     (/ (* (expt rate shape)
           (expt x (- shape 1))
           (exp (* -1 rate x)))
-       (exp (cl-mathstats:gamma-ln shape)))))
+       (gamma-stirling shape))))
+       ;;(exp (cl-mathstats:gamma-ln shape)))))
     
 
 ;;; -------------------------------------------------------------- ;;;
@@ -116,7 +123,10 @@
                          :initform 0)
    (logfile :accessor logfile
             :initform nil)
-   ;;
+   
+   ;; These are values that will be stored during initialization
+   ;; so that can be read out without the need to recaclulate them
+   
    (slot-values :accessor slot-values
                 :initform (subseq +letters+ 0 4))
    (traumatic-slot-values :accessor traumatic-slot-values
@@ -169,7 +179,7 @@
             (get-model-parameters s))))
 
 (defun make-slot-name (num)
-  "Generates a symbol 'SLOT<N>', with N being an integer number"
+  "Generates a symbol 'Q<N>', with N being an integer number"
   (intern (string-upcase (format nil "Q~A" num))))
 
 
@@ -377,3 +387,14 @@
         (simulate s))))
   (unless (null (logfile s))
     (save-trace s)))
+
+;;; -------------------------------------------------------------- ;;;
+;;; DM EXPLORATION
+;;; -------------------------------------------------------------- ;;;
+
+(defun activation-distribution ()
+  (let ((ltm (no-output (sdm kind memory))))
+    (sort (get-base-level-fct ltm)
+          #'>)))
+
+
