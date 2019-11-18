@@ -4,7 +4,7 @@
 
 import os
 
-ACTRDIR="/actr/actr7.x"
+ACTRDIR="/projects/actr/actr7.x"
 CURRENTDIR=os.path.dirname(os.path.realpath(__file__))
 TEMPLATE="""
 (load "%s/load-act-r.lisp")
@@ -24,12 +24,15 @@ TEMPLATE="""
 (run-simulations sim)
 (quit)
 """
-
+ii = 0
 for w in [2, 10, 4, 6, 8]:
     for bll in [0.25, 0.5, 0.75]:
         for rt in [0, 3, 1, 2]:
-            fout=open("simulations_w_%.1f_bll_%.2f_rt_%.2f.lisp" % (w, bll, rt), "w")
+            sleep_time =  1 + (30 * ii)
+            fout=open("f%02d_simulations_w_%.1f_bll_%.2f_rt_%.2f.lisp" % (ii, w, bll, rt), "w")
+            fout.write("(sleep %d)" % sleep_time)
             fout.write(TEMPLATE % (ACTRDIR, CURRENTDIR, w, bll, rt, w, bll, rt))
             fout.flush()
             fout.close()
+            ii += 1
         
