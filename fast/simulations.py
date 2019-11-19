@@ -28,7 +28,7 @@ TEMPLATE="""
 ii = 0
 
 for w in [2, 10, 4, 6, 8]:
-    for bll in [0.25, 0.5, 0.75]:
+    for bll in [0.5, 0.8, 0.6, 0.7]:
         for rt in [0, 3, 1, 2]:
             if SLEEP_WORKAROUND:
                 sleep_time =  1 + (30 * ii)

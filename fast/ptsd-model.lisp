@@ -13,7 +13,7 @@
 (sgp :esc t
      :er t
      :bll 0.5
-     :blc 1.0
+     :blc 0
      :ans 0.5
      :ol t
 

@@ -86,15 +86,15 @@
    (n :accessor n
       :initform 100)
    (ptev :accessor ptev
-         :initform (seq 10 35 5))
+         :initform (seq 10 60 10))
    (ptes :accessor ptes
          :initform '(seq 0 1 0.2))
    ;;(ptet :accessor ptet          ;; Deprecated
    ;;      :initform (* 60 500))
    ;;(max-time :accessor max-time  ;; Deprecated
    ;;          :initform 200000)
-   (event-step :accessor event-step
-               :initform (* 60 20))
+   ;;(event-step :accessor event-step  ;; Deprecated
+   ;;            :initform (* 60 20))
    (counter :accessor counter
             :initform 0)
    (num-slots :accessor num-slots
@@ -120,7 +120,7 @@
    (event-frequency :accessor event-frequency
                     :initform 20)
    (event-params :accessor event-params
-                 :initform '(3 175))
+                 :initform '(2.1 175))
 
    ;; Prob distribution of spontaneous rumination 
    ;;  ~ Gamma(shape = 5, scale = 100)
@@ -313,6 +313,10 @@
                       (current-s s)
                       (num-slots s)
                       (num-attributes s)
+                      (num-days-before s)
+                      (num-days-after s)
+                      (event-frequency s)
+                      (rumination-frequency s)
                       (mp-time)
                       (if chunk
                           (chunk-v-term s chunk)
@@ -334,8 +338,9 @@
 
 
 (defparameter *colnames*
-  '("Run" "PTEV" "PTES" "NumSlots"
-    "NumAttributes" "Time" "ChunkV" "Traumatic" "ChunkSimilarity")
+  '("Run" "PTEV" "PTES" "NumSlots" "NumAttributes" "NumDaysBefore"
+    "NumDaysAfter" "EventFrequency" "RuminationFrequency" "Time"
+    "ChunkV" "Traumatic" "ChunkSimilarity")
   "Names of the fundametal values to log")
 
 

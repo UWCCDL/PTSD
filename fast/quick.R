@@ -4,6 +4,8 @@ library(ggplot2)
 
 d <- read.csv("test-automatic.txt")
 d$Day <- floor(d$Time / (60*60*24)) - 100
+d$Hour <- floor((d$Time / 3600) %% 24)
+hist(d$Hour, breaks = 24)
 #d$Day <- as.factor(d$Day)
 d <- subset(d, d$Day > -10)
 d$PTEV <- as.factor(d$PTEV)
@@ -11,8 +13,6 @@ d$PTEV <- as.factor(d$PTEV)
 a <- aggregate(d[c("Traumatic", "ChunkV")], list(Day=d$Day, PTEV=d$PTEV), mean)
 
 #a$PTEV <-as.factor(a$PTEV)
-
-
 
 ggplot(a, aes(x=Day, y=Traumatic, col=PTEV)) +
   #geom_line()
