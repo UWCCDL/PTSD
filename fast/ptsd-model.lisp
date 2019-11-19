@@ -14,7 +14,7 @@
      :er t
      :bll 0.5
      :blc 1.0
-     :ans 0.2
+     :ans 0.5
      :ol t
 
      ;; Enable WM effects through spreading activation

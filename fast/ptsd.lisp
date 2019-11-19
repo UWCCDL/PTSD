@@ -86,9 +86,9 @@
    (n :accessor n
       :initform 100)
    (ptev :accessor ptev
-         :initform '(1 5 10))
+         :initform (seq 10 35 5))
    (ptes :accessor ptes
-         :initform '(0 0.5 1))
+         :initform '(seq 0 1 0.2))
    ;;(ptet :accessor ptet          ;; Deprecated
    ;;      :initform (* 60 500))
    ;;(max-time :accessor max-time  ;; Deprecated
@@ -98,7 +98,7 @@
    (counter :accessor counter
             :initform 0)
    (num-slots :accessor num-slots
-              :initform 10)
+              :initform 8)
    (num-attributes :accessor num-attributes
                    :initform 4)
    (current-v :accessor current-v
@@ -111,16 +111,30 @@
                     :initform 100)
    (num-days-after :accessor num-days-after
                    :initform 60)
-   (slot-names :accessor slot-names  ;; Deprecated
-               :initform '(q1 q2 q3 q4 q5 q6)) 
-   (model-trace :accessor model-trace
-                :initform nil)
+   
    (model-params :accessor model-params
                  :initform (make-hash-table))
+
+   ;; Prob distribution of events occurring in
+   ;; the environment ~ Gamma(shape = 2, scale = 175)
    (event-frequency :accessor event-frequency
                     :initform 20)
+   (event-params :accessor event-params
+                 :initform '(3 175))
+
+   ;; Prob distribution of spontaneous rumination 
+   ;;  ~ Gamma(shape = 5, scale = 100)
    (rumination-frequency :accessor rumination-frequency
                          :initform 0)
+   
+   (rumination-params :accessor rumination-params
+                      :initform '(6 100))
+
+   ;; Logs and traces
+
+   (model-trace :accessor model-trace
+                :initform nil)
+
    (logfile :accessor logfile
             :initform nil)
 
@@ -129,11 +143,18 @@
    
    ;; These are values that will be stored during initialization
    ;; so that can be read out without the need to recaclulate them
-   
+
+   (slot-names :accessor slot-names  ;; Deprecated
+               :initform '(q1 q2 q3 q4 q5 q6)) 
+
    (slot-values :accessor slot-values
                 :initform (subseq +letters+ 0 4))
+
    (traumatic-slot-values :accessor traumatic-slot-values
-                          :initform   (subseq (reverse +letters+) 0 4))))
+                          :initform   (subseq (reverse +letters+) 0 4))
+
+   )) ;; End of class definition
+
 
 (defmethod init ((s simulation))
   "Prepares all the internal values for a simulation"
@@ -220,9 +241,20 @@
       (set-buffer-chunk buffer newchunk))))
     
 
+(defmethod set-rumination-goal ((s simulation) &optional (buffer 'goal))
+  "Presents a new situation to the model"
+  (when (query-buffer buffer '(state free
+                               error nil
+                               buffer empty))
+    (let* ((newdef '(isa task processed no))
+           (newchunk (first (define-chunks-fct (list newdef)))))
+      (set-buffer-chunk buffer newchunk))))
+
+
 (defmethod chunk-v-term ((s simulation) chunk)
   "Returns the log(V) term associated with a given chunk (and used for activation)"
-  (log (gethash chunk (v-table s) 1.0)))
+  (when chunk
+    (log (gethash chunk (v-table s) 1.0))))
 
 
 (defmethod add-chunk ((s simulation) chunk)
@@ -240,13 +272,14 @@
 
 (defmethod chunk-similarity ((s simulation) chunk1 chunk2)
   "Calculates the simulariy between two chunks"
-  (let ((v1 (vectorize-memory s chunk1))
-        (v2 (vectorize-memory s chunk2)))
-    (when (= (length v1)
-             (length v2))
-      (/ (reduce #'+ (mapcar #'(lambda (x y) (if (equalp x y) 1 0))
-                             v1 v2))
-         (length v1)))))
+  (when (and chunk1 chunk2)
+    (let ((v1 (vectorize-memory s chunk1))
+          (v2 (vectorize-memory s chunk2)))
+      (when (= (length v1)
+               (length v2))
+        (/ (reduce #'+ (mapcar #'(lambda (x y) (if (equalp x y) 1 0))
+                               v1 v2))
+           (length v1))))))
   
 
 (defmethod modified-spreading-activation ((s simulation)
@@ -255,7 +288,8 @@
   (let ((source (no-output (buffer-chunk-fct (list buffer)))))
     (when (> (length source) 0)
       (setf source (first source))
-      (when (not (equalp chunk source))
+      (when (and source
+                 (not (equalp chunk source)))
         (let ((kind1 (chunk-slot-value-fct source 'KIND))
               (kind2 (chunk-slot-value-fct chunk 'KIND)))
           (when (and (equalp kind1 'memory)
@@ -318,19 +352,23 @@
       (format fle "~{~,4f~^,~}~%" row))))
 
 
-(defun generate-timeline (density start-day end-day
+(defun generate-timeline (density start-day num-days
                           &key (gamma-shape 2.0) (gamma-scale 175))
   "Generate a time-line of events given a probability density function"
   (let ((queue nil))
-    (dotimes (day end-day  (reverse queue))
+    (dotimes (day num-days (reverse queue))
       (dotimes (minute +minutes-per-day+)
         (when (> (* (dgamma minute gamma-shape gamma-scale)
                     density)
                  (random 1.0))
-          (push (+ (* (+ start-day day) +minutes-per-day+)
-                   minute)
-                queue))))))
+        (push (+ (* (+ start-day day) +minutes-per-day+)
+                 minute)
+              queue))))))
 
+(defun sanitize-timeline (timeline ptet &optional (tolerance 600))
+  (remove-if #'(lambda (x) (< (abs (- x ptet))
+                              tolerance))
+             timeline))
          
 (defmethod simulate ((s simulation))
   (init s)
@@ -368,24 +406,46 @@
   ;;    (incf time (event-step s))))
   ;;(run (max-time s))
 
-  (let ((pte (list (* (num-days-before s)
-                      +minutes-per-day+)))
-        (before (generate-timeline (event-frequency s)
-                                   0
-                                   (num-days-before s)))
-        (after (generate-timeline (event-frequency s)
-                                  (num-days-before s)
-                                  (num-days-after s))))
-    
-    (dolist (j (append before pte after))
-       (schedule-event (* 60 j) #'present-new-event :params (list s))))
-  (run (* 60 +minutes-per-day+ (+ (num-days-before s)
-                                  (num-days-after s))))
+  (let ((total-num-days (+ (num-days-before s)
+                           (num-days-after s)))
+        (pte (* (num-days-before s)
+                +minutes-per-day+)))
 
-  (when (and (automatic-save-trace s)
+    (schedule-event (* 60 pte) #'present-new-event :params (list s))
+    
+    (let* ((q-params (event-params s))
+           (q-shape (first q-params))
+           (q-scale (second q-params))
+           (events (generate-timeline (event-frequency s)
+                                      0
+                                      total-num-days
+                                      :gamma-scale q-scale
+                                      :gamma-shape q-shape)))
+      
+      (dolist (j  (sanitize-timeline events pte))
+        (schedule-event (* 60 j) #'present-new-event :params (list s))))
+
+    ;; Rumination (if any)
+    (let* ((r-params (rumination-params s))
+           (r-shape (first r-params))
+           (r-scale (second r-params))
+           (rumination (generate-timeline (rumination-frequency s)
+                                          0
+                                          total-num-days
+                                          :gamma-scale r-scale
+                                          :gamma-shape r-shape)))
+      (dolist (rt (sanitize-timeline rumination pte))
+        (schedule-event (* 60 rt) #'set-rumination-goal :params (list s))))
+    
+    
+  
+    (run (* 60 +minutes-per-day+ (+ (num-days-before s)
+                                    (num-days-after s))))
+    
+    (when (and (automatic-save-trace s)
              (logfile s))
-    (save-trace s (not (probe-file (logfile s))))
-    (setf (model-trace s) nil)))
+      (save-trace s (not (probe-file (logfile s))))
+      (setf (model-trace s) nil))))
   
 
 (defmethod run-simulations ((s simulation))
