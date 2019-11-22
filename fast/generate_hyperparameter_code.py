@@ -45,6 +45,8 @@ def unique_file_name(dic):
 
 def write_code(params):
     with open(unique_file_name(params) + ".lisp", 'w') as out:
+        out.write("""(ql:quickload "split-sequence")\n""")
+        out.write("""(push :actr-fast *features*)\n""")
         out.write("""(load "%s/load-act-r.lisp")\n""" % ACTR_DIR)
         out.write("""(load "%s/ptsd.lisp")\n""" % CURRENT_DIR)
         out.write("""(let ((sim (make-instance 'simulation)))\n""")

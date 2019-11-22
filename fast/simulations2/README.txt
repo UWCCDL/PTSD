@@ -34,7 +34,8 @@ files:
   6. ptev.values, values of PTE intensity V
   7. rt.values, values for retrieval threshold
   8. slots.values, values for number of slots in chunks
-  8. w.values, values for W (working memory)
+  9. w.values, values for W (working memory)
+  10. n.values, values for the number of simulations N
 
 How simulations were run
 ------------------------
@@ -52,6 +53,7 @@ This is the how the simulations go
            -a rt.values \\
            -a slots.values \\
            -a w.values \\
+	   -a n.values \\
            ./generate_hyperparameter_code.py
 
 
