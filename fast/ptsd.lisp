@@ -74,7 +74,13 @@
           (exp (* -1 rate x)))
        (gamma-stirling shape))))
        ;;(exp (cl-mathstats:gamma-ln shape)))))
-    
+
+
+(defun power-sum (k n)
+  "(k * (1 - k**n ))/ (1 - k) + 1"
+  (+ (/ (* k (- 1 (expt k n)))
+        (- 1 k))
+     1))
 
 ;;; -------------------------------------------------------------- ;;;
 ;;; SIMULATION OBJECT AND METHODS
@@ -107,6 +113,8 @@
               :initform 0)
    (v-table :accessor v-table
             :initform (make-hash-table))
+   (gamma :accessor gamma
+          :initform 1.0)
    (num-days-before :accessor num-days-before
                     :initform 100)
    (num-days-after :accessor num-days-after
@@ -254,8 +262,18 @@
 (defmethod chunk-v-term ((s simulation) chunk)
   "Returns the log(V) term associated with a given chunk (and used for activation)"
   (when chunk
-    (log (gethash chunk (v-table s) 1.0))))
-
+    (let ((v (gethash chunk (v-table s) 1.0))
+          (gamma (gamma s)))
+      (cond ((= 1 gamma)
+             (log v))
+            ((and (< gamma 1.0)
+                  (> gamma 0))
+             (let ((v-diff (- v 1))
+                   (n (caar (no-output (sdp-fct (list chunk :reference-count))))))
+               (log (* v-diff
+                       (/ (power-sum gamma n)
+                          n)))))))))
+                 
 
 (defmethod add-chunk ((s simulation) chunk)
   "Adds a new chunk to the internal list of memories"
