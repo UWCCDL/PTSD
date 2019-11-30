@@ -77,10 +77,9 @@
 
 
 (defun power-sum (k n)
-  "(k * (1 - k**n ))/ (1 - k) + 1"
-  (+ (/ (* k (- 1 (expt k n)))
-        (- 1 k))
-     1))
+  "(k * (1 - k**n ))/ (1 - k)"
+  (/ (* k (- 1 (expt k n)))
+     (- 1 k)))
 
 ;;; -------------------------------------------------------------- ;;;
 ;;; SIMULATION OBJECT AND METHODS
@@ -270,9 +269,10 @@
                   (> gamma 0))
              (let ((v-diff (- v 1))
                    (n (caar (no-output (sdp-fct (list chunk :reference-count))))))
-               (log (* v-diff
-                       (/ (power-sum gamma n)
-                          n)))))))))
+               (log (+ (* v-diff
+                          (/ (power-sum gamma n)
+                             n))
+                       1))))))))
                  
 
 (defmethod add-chunk ((s simulation) chunk)
