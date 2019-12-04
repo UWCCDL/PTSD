@@ -15,6 +15,7 @@ REPLACEMENTS = {" " : "_", ":" : "",
 PARAMETERS = {"n" : "n",
               "ptev" : "ptev",
               "ptes" : "ptes",
+              "gamma" : "gamma",
               "ef" : "event-frequency",
               "rf" : "rumination-frequency",
               "before" : "num-days-before",
@@ -76,7 +77,8 @@ if __name__ == "__main__":
     parser.add_argument('--after', help='Number of days after PTE')
     parser.add_argument('--attributes', help='Number of attributes for each episode')
     parser.add_argument('--slots', help='Number of slots for each episode')
-
+    parser.add_argument('--gamma', help='Value of V decay')
+    
     # ACT-R PARAMS
     parser.add_argument('--:w', help='Value of :imaginal-activation')
     parser.add_argument('--:bll', help='Decay value')

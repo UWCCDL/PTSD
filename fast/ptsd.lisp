@@ -81,6 +81,87 @@
   (/ (* k (- 1 (expt k n)))
      (- 1 k)))
 
+
+(defun entropy (probs)
+  "Calculates the entropy of a distribution of probabilities"
+  (let ((plogps (mapcar #'(lambda (x) (* x (log x))) probs)))
+    (* -1 (reduce #'+ plogps))))
+
+;;; -------------------------------------------------------------- ;;;
+;;; ACT-R DM FUNCTIONS AND UTILITIES
+;;; -------------------------------------------------------------- ;;;
+
+(defun activation-distribution ()
+  (let ((ltm (no-output (sdm kind episode))))
+    (sort (get-base-level-fct ltm)
+          #'>)))
+
+(defun get-num-references (chunk)
+  "Returns the reference count of a chunk"
+  (caar (no-output (sdp-fct (list chunk :reference-count)))))
+
+
+(defun get-permanent-noise (chunk)
+  "Returns the permanent noise of a chunk"
+  (caar (no-output (sdp-fct `(,chunk :permanent-noise)))))
+
+
+(defun set-permanent-noise (chunk noise)
+  "Sets the permanent noise of a chunk"
+  (no-output (sdp-fct `(,chunk :permanent-noise ,noise))))
+
+
+(defun get-activation (chunk)
+  "Returns the current activation of a chunk"
+  (caar (no-output (sdp-fct `(,chunk :activation)))))
+
+(defun memory-purge-old (cap &optional (ballast -1000))
+  (let* ((ltm (sort (no-output (sdm kind episode))
+                    #'>
+                    :key (lambda (x)
+                           (caar (no-output (sdp-fct `(,x :activation)))))))
+         (size (length ltm)))
+    (when (> size cap)
+      (dolist (chunk (subseq ltm cap))
+        (no-output (sdp-fct `(,chunk :permanent-noise ,ballast)))))))
+
+
+(defun memory-purge-medium (cap &optional (ballast -1000))
+  "Purges DM, adding a ballast to the [N - CAP] less active chunks"
+  (let* ((ltm (sort (no-output (remove-if #'(lambda (x)
+                                              (< (get-permanent-noise x)
+                                                 0))
+                                          (sdm kind episode)))
+                                          
+                    #'>
+                    :key (lambda (x)
+                           (get-activation x))))
+         
+         (size (length ltm)))
+    (when (> size cap)
+      (dolist (chunk (subseq ltm cap))
+        (set-permanent-noise chunk ballast)))))
+
+
+(defun memory-purge (cap &optional (ballast -1000))
+  "Purges DM, adding a ballast to the [N - CAP] less active chunks"
+  (let* ((active-ltm (no-output (remove-if #'(lambda (x)
+                                               (< (get-permanent-noise x)
+                                                  0))
+                                           (sdm kind episode)))))
+    (when (> (length active-ltm) cap)
+      (let ((sorted-ltm (sort active-ltm
+                              #'> 
+                              :key (lambda (x)
+                                     (get-activation x)))))
+        (dolist (chunk (subseq sorted-ltm cap))
+          (set-permanent-noise chunk ballast))))))
+
+
+(defun num-chunks ()
+  (length (no-output (sdm kind episode))))
+
+
 ;;; -------------------------------------------------------------- ;;;
 ;;; SIMULATION OBJECT AND METHODS
 ;;; -------------------------------------------------------------- ;;;
@@ -118,6 +199,9 @@
                     :initform 100)
    (num-days-after :accessor num-days-after
                    :initform 60)
+
+   (dm-size :accessor dm-size
+            :initform nil)
    
    (model-params :accessor model-params
                  :initform (make-hash-table))
@@ -215,10 +299,10 @@
 
 
 (defmethod generate-random-event ((s simulation) &optional (traumatic nil))
-  "Generates a random memory"
+  "Generates a random event Q to be presented"
   (let ((template (make-list (num-slots s) :initial-element nil))
         (tslot '(traumatic no))
-        (slots '(isa memory kind memory)))
+        (slots '(isa episode kind episode)))
     (when traumatic
       (let ((num-changes (round (* (num-slots s)
                                    (- 1 (current-s s))))))
@@ -239,6 +323,13 @@
       
 (defmethod present-new-event ((s simulation) &optional (buffer 'imaginal))
   "Presents a new situation to the model"
+  ;; First, caps memory if the DM is limited
+  (let ((cap (dm-size s)))
+    (when (and cap
+               (plusp cap))
+      (memory-purge cap)))
+
+  ;; Then, presents a new event
   (when (query-buffer buffer '(state free
                                error nil
                                buffer empty))
@@ -310,8 +401,8 @@
                  (not (equalp chunk source)))
         (let ((kind1 (chunk-slot-value-fct source 'KIND))
               (kind2 (chunk-slot-value-fct chunk 'KIND)))
-          (when (and (equalp kind1 'memory)
-                     (equalp kind2 'memory))
+          (when (and (equalp kind1 'episode)
+                     (equalp kind2 'episode))
             (let ((sim (chunk-similarity s source chunk))
                   (w (get-parameter-value :imaginal-activation)))
               (when (null w)
@@ -329,8 +420,10 @@
   (let* ((entry (list (counter s)
                       (current-v s)
                       (current-s s)
+                      (gamma s)
                       (num-slots s)
                       (num-attributes s)
+                      (dm-size s)
                       (num-days-before s)
                       (num-days-after s)
                       (event-frequency s)
@@ -356,9 +449,9 @@
 
 
 (defparameter *colnames*
-  '("Run" "PTEV" "PTES" "NumSlots" "NumAttributes" "NumDaysBefore"
-    "NumDaysAfter" "EventFrequency" "RuminationFrequency" "Time"
-    "ChunkV" "Traumatic" "ChunkSimilarity")
+  '("Run" "PTEV" "PTES" "Gamma" "NumSlots" "NumAttributes" "MemorySize"
+    "NumDaysBefore" "NumDaysAfter" "EventFrequency" "RuminationFrequency"
+    "Time" "ChunkV" "Traumatic" "ChunkSimilarity")
   "Names of the fundametal values to log")
 
 
@@ -472,6 +565,7 @@
   
 
 (defmethod run-simulations ((s simulation))
+  "Runs simulations as specified by the given 'Simulation' object"
   (setf (model-trace s) nil)
   (dolist (v-val (ptev s))
     (dolist (s-val (ptes s))
@@ -484,27 +578,30 @@
               (automatic-save-trace s))
     (save-trace s)))
 
-;;; -------------------------------------------------------------- ;;;
-;;; DM EXPLORATION
-;;; -------------------------------------------------------------- ;;;
 
-(defun activation-distribution ()
-  (let ((ltm (no-output (sdm kind memory))))
-    (sort (get-base-level-fct ltm)
-          #'>)))
+;;(defun quick-test ()
+;;  (setf sim (make-instance 'simulation))
+;;  (setf (current-v s) 20)
+;;  (simulate s))
 
 
-(defun memory-purge (cap)
-  (let* ((ltm (sort (no-output (sdm kind memory))
-                    #'>
-                    :key (first (get-base-level-fct `(,x)))))
-         (size (length ltm)))
-    (when (> size cap)
-      (dolist (chunk (subseq ltm cap))
-        (delete-chunk chunk))))) 
 
 
-(defun quick-test ()
-  (setf sim (make-instance 'simulation))
-  (setf (current-v s) 20)
-  (simulate s))
+
+(defun dm-entropy (s)
+  "Estimates the memory size as entropy * N"
+  (let* ((ltm (no-output (sdm kind episode)))
+         (activations (mapcar #'(lambda (x)
+                                  (+ (chunk-v-term s x)
+                                     (first (get-base-level-fct `(,x)))))
+                              ltm))
+         (exps (mapcar #'exp activations))
+         (total (reduce #'+ exps))
+         (probs (mapcar #'(lambda (x) (/ x total)) exps)))
+    (entropy probs)))
+        
+
+(defun estimated-size (s)
+  "Estimates HPC size from entropy"
+  (let ((n (length (no-output (sdm kind episode)))))
+    (* (dm-entropy s) n)))    

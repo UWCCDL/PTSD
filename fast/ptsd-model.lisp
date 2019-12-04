@@ -41,7 +41,7 @@
 
 ;;; Memory attributes (chunk slot values for memories)
 ;;;
-(chunk-type memory kind q1 q2 q3
+(chunk-type episode kind q1 q2 q3
             q4 q5 q6 q7 q8 q9 q10
             q11 q12 q13 q14 q15
             traumatic)
@@ -58,7 +58,7 @@
 (define-chunks (a) (b) (c) (d) (e) (f) (g) (h)
                (i) (j) (k) (l) (m) (n) (o) (p)
                (q) (r) (s) (t) (u) (v) (w) (x)
-               (y) (z) (yes) (no) (memory))
+               (y) (z) (yes) (no) (memory) (episode))
 
 
 ;;; ---- PROCEDURAL KNOWLEDGE AND CONTROL -------------------------- #
@@ -95,7 +95,7 @@
       state free
 ==>
     +retrieval>
-      kind memory)
+      kind episode)
 
 ;;; STEP 3: RESPOND
 
