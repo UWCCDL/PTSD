@@ -11,7 +11,7 @@
   "Letters are used as symbolic stimulus attributes")
 
 (defconstant +minutes-per-day+ (* 60 24)
-  "Handy constant to aoid recalculating the num of minutes in a day")
+  "Handy constant to avoid recalculating the num of minutes in a day")
 
 
 ;;; -------------------------------------------------------------- ;;;
@@ -424,6 +424,7 @@
                       (num-slots s)
                       (num-attributes s)
                       (dm-size s)
+                      (dm-entropy s)
                       (num-days-before s)
                       (num-days-after s)
                       (event-frequency s)
@@ -449,8 +450,11 @@
 
 
 (defparameter *colnames*
-  '("Run" "PTEV" "PTES" "Gamma" "NumSlots" "NumAttributes" "MemorySize"
-    "NumDaysBefore" "NumDaysAfter" "EventFrequency" "RuminationFrequency"
+  '("Run" "PTEV" "PTES" "Gamma"
+    "NumSlots" "NumAttributes"
+    "MemorySize" "MemoryEntropy"
+    "NumDaysBefore" "NumDaysAfter"
+    "EventFrequency" "RuminationFrequency"
     "Time" "ChunkV" "Traumatic" "ChunkSimilarity")
   "Names of the fundametal values to log")
 
