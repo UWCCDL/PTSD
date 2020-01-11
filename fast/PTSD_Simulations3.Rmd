@@ -1,0 +1,152 @@
+---
+title: "PTSD Model, Simulation 3 Analysis"
+author: "Andrea Stocco"
+date: "January 10, 2020"
+output:
+  html_document:
+    code_folding: hide
+    theme: yeti
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  word_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+```
+
+# PTSD Model: Analysis of Simulation 3
+
+## Loading the Data
+
+The raw simulations are stored in a large datafile. An aggregated version of the dataset exist. 
+
+```{r}
+d <- read_csv("simulations3.csv", col_types = cols())
+d <- d %>%
+  mutate(Day = floor(Time / (60*60*24)) - 100,
+         Hour = floor((d$Time / 3600) %% 24))
+names(d)[18] <- "W"
+```
+
+### Distribution of events
+
+First, let's check that the distribution of events over time (as approximated by retrieval times) follow a gamma distribution, as intended:
+
+```{r}
+ggplot(d, aes(x=Hour, fill=RuminationFrequency)) +
+  geom_histogram(binwidth = 1, col="white", alpha=0.5, position="identity") +
+  theme_pander()
+```
+
+### Simplify and Aggregate the Data
+
+The full data from SImulation 3 is way too large to handle (14G, containing `r dim(d)[1]` obserbations of `r dim(d)[2]` variables). So we need to reduce it and simplify it.
+
+We begin by removing most of the days preceding the PTE:
+
+```{r}
+d <- d %>% filter(Day > -20)
+```
+
+We then turn the various variables into factors, so that they can be grouped efficiently:
+
+```{r}
+d <- d%>% mutate(RT = as_factor(RT), 
+                 Gamma=as_factor(Gamma),
+                 SpontaneousRetrievals=as_factor(RuminationFrequency),
+                 W=as_factor(W),
+                 PTES = as_factor(PTES),
+                 PTEV = as_factor(PTEV),
+                 NumAttributes = as_factor(NumAttributes))
+```
+
+Finally, we aggregate by day:
+
+```{r}
+a <- d %>% 
+  group_by(Day, PTES, PTEV, Run, Gamma, W, RuminationFrequency, NumAttributes) %>% 
+  summarize_all(mean) 
+
+a <- a %>% ungroup %>% mutate(PTEV=as_factor(PTEV), A=as_factor(NumAttributes))
+```
+
+## Main Results
+
+First, we need to check whether there is an effect of Gamma (intensity of memory) and PTEV (intensity of event)
+
+```{r}
+ggplot(data=filter(a, PTEV != 1), aes(x=Day, y=Traumatic)) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  #stat_summary(fun.data = mean_se, geom="errorbar") +
+  stat_summary(fun.data = mean_se, geom="point") +
+  facet_grid(PTEV ~ Gamma, labeller=label_both) +
+  theme_pander() +
+  ggtitle("Main Efects of Gamma and PTEV") +
+  ylab("Probability of Retriving a Traumatic Memory") +
+  annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="blue", alpha=0.2)
+```
+
+As expected, when PTEV = 1, there is no significant effect (the added value of a traumatic memory is zero). So, we can filter this value out in the following analysis
+
+### Effects of the Number of Attributes in a Memory
+
+The number of attributes in a memory is a computational proxy for the level of precision that an individual has in encoding the perceptual representations of an event. It has been found that individuals whose representation has greater precision (as indexed by mental imagery and perceptual priming) have worse outcomes from PTSD> 
+This is reflected in our data, as show bt the higher curves corresponding to greater number of attributes (_N_ = 6 vs. _N_ = 4).
+
+```{r}
+ggplot(data=filter(a, PTEV != 1), aes(x=Day, y=Traumatic, col=NumAttributes)) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  #stat_summary(fun.data = mean_se, geom="errorbar") +
+  stat_summary(fun.data = mean_se, geom="point") +
+  facet_grid(PTEV ~ Gamma, labeller=label_both) +
+  theme_pander() +
+  ggtitle("Effect of Number of Attributes by Gamma and PTEV") +
+  ylab("Probability of Retriving a Traumatic Memory") +
+  annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="blue", alpha=0.2)
+```
+
+### Effects of Working Memory
+
+It is known in the literature that Working Memory (and cognitive control, which is typically indexed by working memory tasks) is associated with better outcomes following PTSD. 
+
+This is true in our simulations, as evidenced by the greater probability of retrieving traumatic memories as the value of working memory decreases (_W_ = 4 vs. 8 vs. 12).
+
+```{r}
+ggplot(data=a, aes(x=Day, y=Traumatic, col=W)) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  stat_summary(fun.data = mean_se, geom="errorbar") +
+  #stat_summary(fun.data = mean_se, geom="point") +
+  facet_grid(PTEV ~ Gamma, labeller = label_both) +
+  theme_pander() +
+  ggtitle("Effect of Working Memory by Gamma and PTEV") +
+  ylab("Probability of Retriving a Traumatic Memory") +
+  annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="red", alpha=0.2)
+```
+
+### Effect of Rumination and Negative Appraisal
+
+Finally, we examined whether the tendency to ruminate or revisit the past traumatic experience (the PTE) negatively affects the model's performance. This is done by examining the effect of the numer of Spontaneous (i.e., not tied to event) Retrievals:
+
+
+```{r}
+ggplot(data=a, aes(x=Day, y=Traumatic, col=RuminationFrequency)) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  stat_summary(fun.data = mean_se, geom="errorbar") +
+  #stat_summary(fun.data = mean_se, geom="point") +
+  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES), 
+  #            method = "lm") +
+  facet_grid(PTEV ~ Gamma, labeller = label_both) +
+  theme_pander() +
+  #scale_color_brewer(type='seq', palette = "GnBu") +
+  annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="red", alpha=0.2)
+```
