@@ -43,7 +43,7 @@ names(d)[18] <- "W"
 First, let's check that the distribution of events over time (as approximated by retrieval times) follow a gamma distribution, as intended:
 
 ```{r}
-ggplot(d, aes(x=Hour, fill=RuminationFrequency)) +
+ggplot(d, aes(x=Hour)) +
   geom_histogram(binwidth = 1, col="white", alpha=0.5, position="identity") +
   theme_pander()
 ```
@@ -63,7 +63,7 @@ We then turn the various variables into factors, so that they can be grouped eff
 ```{r}
 d <- d%>% mutate(RT = as_factor(RT), 
                  Gamma=as_factor(Gamma),
-                 SpontaneousRetrievals=as_factor(RuminationFrequency),
+                 RuminationFrequency=as_factor(RuminationFrequency),
                  W=as_factor(W),
                  PTES = as_factor(PTES),
                  PTEV = as_factor(PTEV),
@@ -74,10 +74,12 @@ Finally, we aggregate by day:
 
 ```{r}
 a <- d %>% 
+  select(Run, Day, PTEV, PTES, Gamma, NumAttributes, MemoryEntropy, RuminationFrequency, ChunkV, 
+         Traumatic, ChunkSimilarity, W) %>%
   group_by(Day, PTES, PTEV, Run, Gamma, W, RuminationFrequency, NumAttributes) %>% 
   summarize_all(mean) 
 
-a <- a %>% ungroup %>% mutate(PTEV=as_factor(PTEV), A=as_factor(NumAttributes))
+a <- a %>% ungroup #%>% mutate(PTEV=as_factor(PTEV), A=as_factor(NumAttributes))
 ```
 
 ## Main Results
@@ -91,7 +93,7 @@ ggplot(data=filter(a, PTEV != 1), aes(x=Day, y=Traumatic)) +
   stat_summary(fun.data = mean_se, geom="point") +
   facet_grid(PTEV ~ Gamma, labeller=label_both) +
   theme_pander() +
-  ggtitle("Main Efects of Gamma and PTEV") +
+  ggtitle("Main Effects of Gamma and PTEV") +
   ylab("Probability of Retriving a Traumatic Memory") +
   annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="blue", alpha=0.2)
 ```
@@ -147,6 +149,7 @@ ggplot(data=a, aes(x=Day, y=Traumatic, col=RuminationFrequency)) +
   #            method = "lm") +
   facet_grid(PTEV ~ Gamma, labeller = label_both) +
   theme_pander() +
+  ggtitle("Effect of Spontaneous Retrievals by Gamma and PTEV") +
   #scale_color_brewer(type='seq', palette = "GnBu") +
   annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="red", alpha=0.2)
 ```
