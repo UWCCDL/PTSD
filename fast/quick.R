@@ -32,15 +32,73 @@ a <- d %>%
   summarize_all(mean) 
 
 
-a <- a %>% ungroup %>% mutate(PTEV=as_factor(PTEV), A=as_factor(NumAttributes))
+a <- a %>% ungroup %>% mutate(PTEV = as_factor(PTEV),
+                              A = as_factor(NumAttributes))
 
-#a <- aggregate(d[c("Traumatic", "ChunkV")], list(Day=d$Day, PTEV=d$PTEV, Run=d$Run, Gamma=d$Gamma), mean)
-#a<- as_tibble(a)
-#a$PTEV <-as.factor(a$PTEV)
-#a$Gamma <- as.factor(a$Gamma)
+a <- a %>% select(Run, Day, PTEV, Gamma, PTES, W, NumAttributes, RuminationFrequency, MemoryEntropy, ChunkSimilarity, Traumatic)
+a <- a %>% arrange(Run, PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma)
 
+
+# Classifies people based on trajectory:
+# Chronic = 1
+# Recovery =2
+# Delay    =3
+# resilient= 4
+#
+classify <- function(days) {
+  g1 <- days[10:19]
+  g2 <- days[21:30]
+  g3 <- days[70:79]
+  t12 <- t.test(g1, g2)
+  t23 <- t.test(g2, g3)
+  category <- 0
+  if (!is.na(t12$p.value) & t12$p.value < 0.05) {
+    # t1 < t2
+    if (!is.na(t23$p.value) & t23$p.value < 0.05) {
+      # t2 <> t3
+      
+      if (!is.na(t23$statistic) & t23$statistic > 0) {
+        # t1 < t2, t2 > 3
+        category <- "Recovery" #2  # Recovery
+      } else {
+        # t1 < t2, t2 < t3
+        category <- "Delayed" # 3 # Delayed
+      } 
+    } else {
+      # t1 < t2, t2 = t3
+      category <- "Chronic" # 1 # Chronic
+    }
+  } else {
+    # t1 == t2
+    if (!is.na(t23$p.value) & t23$p.value < 0.05) {
+      # t1 == t2, t2 < t3
+      category <- "Delayed" #3 # Delayed
+    } else {
+      # t1 == t2, t2 = t3
+      category <- "Resilient" # 4 # Resilient
+    }
+  }
+  category
+}
+
+patterns <- a %>% group_by(Run, PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma) %>%
+  summarize(class = classify(Traumatic))
+
+cpatterns <- patterns %>%
+  mutate(Class=as_factor(class)) %>%
+  group_by(PTEV, Gamma, Class) %>%
+  summarize(Num=n() / 24)
+
+ggplot(data=cpatterns, aes(x="", y=Num, fill=Class)) +
+  geom_bar(width=1, stat = "identity") +
+  facet_grid(PTEV ~ Gamma, labeller=label_both) +
+  coord_polar("y", start=0) +
+  scale_fill_brewer(palette="Blues") +
+  geom_text(aes(x=1, y = Num/2, label=round(Num, 2))) +
+  theme_pander()
+  
 # Plot
-ggplot(data=filter(a, PTEV != 1), aes(x=Day, y=Traumatic, col=NumAttributes)) +
+ggplot(data=filter(a, PTEV != 1 & PTES ==0), aes(x=Day, y=Traumatic, col=NumAttributes)) +
   stat_summary(fun.data = mean_se, geom="line") +
   #stat_summary(fun.data = mean_se, geom="errorbar") +
   stat_summary(fun.data = mean_se, geom="point") +
@@ -66,7 +124,7 @@ ggplot(data=a, aes(x=Day, y=Traumatic, col=W)) +
   ylab("Probability of Retriving a Traumatic Memory") +
   annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="red", alpha=0.2)
 
-ggplot(data=filter(a, RuminationFrequency==0), aes(x=Day, y=Traumatic, col=PTES)) +
+ggplot(data=filter(a, RuminationFrequency==0), aes(x=Day, y=MemoryEntropy, col=PTES)) +
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_se, geom="errorbar") +
   #stat_summary(fun.data = mean_se, geom="point") +

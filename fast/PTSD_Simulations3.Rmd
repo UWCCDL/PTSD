@@ -79,6 +79,8 @@ a <- d %>%
   group_by(Day, PTES, PTEV, Run, Gamma, W, RuminationFrequency, NumAttributes) %>% 
   summarize_all(mean) 
 
+a <- a %>% select(Run, Day, PTEV, Gamma, PTES, W, NumAttributes, RuminationFrequency, MemoryEntropy, ChunkSimilarity, Traumatic)
+
 a <- a %>% ungroup #%>% mutate(PTEV=as_factor(PTEV), A=as_factor(NumAttributes))
 ```
 
@@ -87,7 +89,8 @@ a <- a %>% ungroup #%>% mutate(PTEV=as_factor(PTEV), A=as_factor(NumAttributes))
 First, we need to check whether there is an effect of Gamma (intensity of memory) and PTEV (intensity of event)
 
 ```{r}
-ggplot(data=filter(a, PTEV != 1), aes(x=Day, y=Traumatic)) +
+ggplot(data=a,
+       aes(x=Day, y=Traumatic)) +
   stat_summary(fun.data = mean_se, geom="line") +
   #stat_summary(fun.data = mean_se, geom="errorbar") +
   stat_summary(fun.data = mean_se, geom="point") +
@@ -100,13 +103,99 @@ ggplot(data=filter(a, PTEV != 1), aes(x=Day, y=Traumatic)) +
 
 As expected, when PTEV = 1, there is no significant effect (the added value of a traumatic memory is zero). So, we can filter this value out in the following analysis
 
+### Distribution of Recovery Trajectories
+
+According to many influential reviews, the recovery trajectories fro PTSD can be grouped into four categories:
+
+  1. Chronic response
+  2. Delayed response
+  3. Spontaneous recovery
+  4. Resilience
+  
+These four curves can e easily identified by comparing the number of intrusive memories before vs. immediately after the PTE, first, and immediately after the PTE vs. after two months, second.
+
+To examine the composition of recovery trajectories across simulation parameters, we first need to create a funcion that properly classifies an individual trajectory:
+
+```{r}
+# Classifies people based on trajectory:
+# Chronic = 1
+# Recovery =2
+# Delay    =3
+# resilient= 4
+#
+classify <- function(days) {
+  g1 <- days[10:19]
+  g2 <- days[21:30]
+  g3 <- days[70:79]
+  t12 <- t.test(g1, g2)
+  t23 <- t.test(g2, g3)
+  category <- 0
+  if (!is.na(t12$p.value) & t12$p.value < 0.05) {
+    # t1 < t2
+    if (!is.na(t23$p.value) & t23$p.value < 0.05) {
+      # t2 <> t3
+      
+      if (!is.na(t23$statistic) & t23$statistic > 0) {
+        # t1 < t2, t2 > 3
+        category <- "Recovery" #2  # Recovery
+      } else {
+        # t1 < t2, t2 < t3
+        category <- "Delayed" # 3 # Delayed
+      } 
+    } else {
+      # t1 < t2, t2 = t3
+      category <- "Chronic" # 1 # Chronic
+    }
+  } else {
+    # t1 == t2
+    if (!is.na(t23$p.value) & t23$p.value < 0.05) {
+      # t1 == t2, t2 < t3
+      category <- "Delayed" #3 # Delayed
+    } else {
+      # t1 == t2, t2 = t3
+      category <- "Resilient" # 4 # Resilient
+    }
+  }
+  category
+}
+```
+
+We then proceed to summarize the data according to their category:
+
+```{r}
+a <- a %>% 
+  arrange(Run, PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma)
+
+categorized <- a %>% 
+  group_by(Run, PTEV, PTES, PTES, NumAttributes,
+           RuminationFrequency, W, Gamma) %>%
+  summarize(Trajectory = classify(Traumatic))
+
+csummary <- categorized %>%
+  #mutate(Class=as_factor(class)) %>%
+  group_by(PTEV, Gamma, Trajectory) %>%
+  summarize(Num=n() / 24)
+
+ggplot(data=csummary, aes(x="", y=Num, fill=Trajectory)) +
+  geom_bar(width=1, stat = "identity") +
+  facet_grid(PTEV ~ Gamma, labeller=label_both) +
+  coord_polar("y", start=0) +
+  scale_fill_brewer(palette="Blues") +
+  xlab("") +
+  ylab("") +
+  ggtitle("Percentage of Recovery Trajectories") +
+  #geom_text(aes(x=1, y = Num, label=round(Num, 1))) +
+  theme_pander()
+```
+
 ### Effects of the Number of Attributes in a Memory
 
 The number of attributes in a memory is a computational proxy for the level of precision that an individual has in encoding the perceptual representations of an event. It has been found that individuals whose representation has greater precision (as indexed by mental imagery and perceptual priming) have worse outcomes from PTSD> 
 This is reflected in our data, as show bt the higher curves corresponding to greater number of attributes (_N_ = 6 vs. _N_ = 4).
 
 ```{r}
-ggplot(data=filter(a, PTEV != 1), aes(x=Day, y=Traumatic, col=NumAttributes)) +
+ggplot(data=filter(a, PTEV != 1), 
+       aes(x=Day, y=Traumatic, col=NumAttributes)) +
   stat_summary(fun.data = mean_se, geom="line") +
   #stat_summary(fun.data = mean_se, geom="errorbar") +
   stat_summary(fun.data = mean_se, geom="point") +
@@ -124,7 +213,8 @@ It is known in the literature that Working Memory (and cognitive control, which 
 This is true in our simulations, as evidenced by the greater probability of retrieving traumatic memories as the value of working memory decreases (_W_ = 4 vs. 8 vs. 12).
 
 ```{r}
-ggplot(data=a, aes(x=Day, y=Traumatic, col=W)) +
+ggplot(data=filter(a, PTEV != 1),
+       aes(x=Day, y=Traumatic, col=W)) +
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_se, geom="errorbar") +
   #stat_summary(fun.data = mean_se, geom="point") +
@@ -141,7 +231,8 @@ We examined whether the tendency to ruminate or revisit the past traumatic exper
 
 
 ```{r}
-ggplot(data=a, aes(x=Day, y=Traumatic, col=RuminationFrequency)) +
+ggplot(data=filter(a, PTEV != 1), 
+       aes(x=Day, y=Traumatic, col=RuminationFrequency)) +
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_se, geom="errorbar") +
   #stat_summary(fun.data = mean_se, geom="point") +
@@ -159,7 +250,7 @@ ggplot(data=a, aes(x=Day, y=Traumatic, col=RuminationFrequency)) +
 Finally, the last factor we examined is the effect of the similarity __PTES__ between the PTE and the contextual events (_Q_). 
 
 ```{r}
-ggplot(data=filter(a, RuminationFrequency==0), aes(x=Day, y=Traumatic, col=PTES)) +
+ggplot(data=filter(a, PTEV != 1), aes(x=Day, y=Traumatic, col=PTES)) +
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_se, geom="errorbar") +
   #stat_summary(fun.data = mean_se, geom="point") +
