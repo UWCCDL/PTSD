@@ -43,7 +43,11 @@ names(d)[18] <- "W"
 First, let's check that the distribution of events over time (as approximated by retrieval times) follow a gamma distribution, as intended:
 
 ```{r}
-ggplot(d, aes(x=Hour)) +
+#ggplot(d, aes(x=Hour)) +
+#  geom_histogram(binwidth = 1, col="white", alpha=0.5, position="identity") +
+#  theme_pander()
+
+ggplot(d, aes(x=Hour, fill=RuminationFrequency)) +
   geom_histogram(binwidth = 1, col="white", alpha=0.5, position="identity") +
   theme_pander()
 ```
@@ -163,29 +167,36 @@ classify <- function(days) {
 We then proceed to summarize the data according to their category:
 
 ```{r}
-a <- a %>% 
-  arrange(Run, PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma)
 
-categorized <- a %>% 
-  group_by(Run, PTEV, PTES, PTES, NumAttributes,
-           RuminationFrequency, W, Gamma) %>%
-  summarize(Trajectory = classify(Traumatic))
+a <- a %>% ungroup %>% mutate(PTEV = as_factor(PTEV),
+                              A = as_factor(NumAttributes))
 
-csummary <- categorized %>%
+a <- a %>% select(Run, Day, PTEV, Gamma, PTES, W, NumAttributes, RuminationFrequency, MemoryEntropy, ChunkSimilarity, Traumatic)
+
+a <- a %>% arrange(Run, PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma)
+
+patterns <- a %>% 
+  group_by(Run, PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma) %>%
+  summarize(Trajectory = classify(Traumatic)) 
+
+cpatterns <- patterns %>%
   #mutate(Class=as_factor(class)) %>%
   group_by(PTEV, Gamma, Trajectory) %>%
-  summarize(Num=n() / 24)
+  summarize(Num=n() / 24) 
 
-ggplot(data=csummary, aes(x="", y=Num, fill=Trajectory)) +
+ggplot(data=filter(cpatterns, PTEV != 1), aes(x="", y=Num, fill=Trajectory)) +
   geom_bar(width=1, stat = "identity") +
   facet_grid(PTEV ~ Gamma, labeller=label_both) +
   coord_polar("y", start=0) +
-  scale_fill_brewer(palette="Blues") +
+  #scale_fill_brewer(palette="Blues") +
+  scale_fill_brewer(palette="Set3") +
   xlab("") +
   ylab("") +
   ggtitle("Percentage of Recovery Trajectories") +
-  #geom_text(aes(x=1, y = Num, label=round(Num, 1))) +
+  #geom_text(aes(y = Num, label=round(Num, 1))) +
   theme_pander()
+
+
 ```
 
 ### Effects of the Number of Attributes in a Memory

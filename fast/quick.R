@@ -81,20 +81,25 @@ classify <- function(days) {
   category
 }
 
-patterns <- a %>% group_by(Run, PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma) %>%
-  summarize(class = classify(Traumatic))
+patterns <- a %>% 
+  group_by(Run, PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma) %>%
+  summarize(Trajectory = classify(Traumatic)) 
 
 cpatterns <- patterns %>%
-  mutate(Class=as_factor(class)) %>%
-  group_by(PTEV, Gamma, Class) %>%
-  summarize(Num=n() / 24)
+  #mutate(Class=as_factor(class)) %>%
+  group_by(PTEV, Gamma, Trajectory) %>%
+  summarize(Num=n() / 24) %>%
+  ungroup()
 
-ggplot(data=cpatterns, aes(x="", y=Num, fill=Class)) +
+ggplot(data=filter(cpatterns, PTEV != 1), aes(x="", y=Num, fill=Trajectory)) +
   geom_bar(width=1, stat = "identity") +
   facet_grid(PTEV ~ Gamma, labeller=label_both) +
   coord_polar("y", start=0) +
   scale_fill_brewer(palette="Blues") +
-  geom_text(aes(x=1, y = Num/2, label=round(Num, 2))) +
+  xlab("") +
+  ylab("") +
+  ggtitle("Percentage of Recovery Trajectories") +
+  #geom_text(aes(x=1, y = Num, label=round(Num, 1))) +
   theme_pander()
   
 # Plot
@@ -149,3 +154,24 @@ ggplot(data=a, aes(x=Day, y=Traumatic, col=RuminationFrequency)) +
   #scale_color_brewer(type='seq', palette = "GnBu") +
   annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="red", alpha=0.2)
 
+ggplot(data=a, aes(x=Day, y=MemoryEntropy, col=RuminationFrequency)) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  stat_summary(fun.data = mean_se, geom="errorbar") +
+  #stat_summary(fun.data = mean_se, geom="point") +
+  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES), 
+  #            method = "lm") +
+  facet_grid(PTEV ~ Gamma, labeller = label_both) +
+  theme_pander() +
+  #scale_color_brewer(type='seq', palette = "GnBu") +
+  annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="red", alpha=0.2)
+
+
+# Memory
+
+trend <- a %>% 
+  filter(PTEV == 1) %>%
+  group_by(Day) %>%
+  summarize(Baseline = mean(MemoryEntropy))
+
+a <- a %>%
+  mutate(HippocampusSize = MemoryEntropy - trend$Baseline)
