@@ -65,49 +65,32 @@ d <- d %>% filter(Day > -20)
 We then turn the various variables into factors, so that they can be grouped efficiently:
 
 ```{r}
-d <- d%>% mutate(RT = as_factor(RT), 
+d <- d%>% mutate(#RT = as_factor(RT), 
                  Gamma=as_factor(Gamma),
                  RuminationFrequency=as_factor(RuminationFrequency),
+                 #ANS = as_factor(ANS),
                  W=as_factor(W),
                  PTES = as_factor(PTES),
                  PTEV = as_factor(PTEV),
                  NumAttributes = as_factor(NumAttributes))
-```
 
-Finally, we aggregate by day:
-
-```{r}
+# Reduce, summarizing across events 
 a <- d %>% 
-  select(Run, Day, PTEV, PTES, Gamma, NumAttributes, MemoryEntropy, RuminationFrequency, ChunkV, 
-         Traumatic, ChunkSimilarity, W) %>%
   group_by(Day, PTES, PTEV, Run, Gamma, W, RuminationFrequency, NumAttributes) %>% 
   summarize_all(mean) 
 
+
+a <- a %>% ungroup %>% mutate(PTEV = as_factor(PTEV),
+                              A = as_factor(NumAttributes))
+
 a <- a %>% select(Run, Day, PTEV, Gamma, PTES, W, NumAttributes, RuminationFrequency, MemoryEntropy, ChunkSimilarity, Traumatic)
+a <- a %>% arrange(Run, PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma)
 
-a <- a %>% ungroup #%>% mutate(PTEV=as_factor(PTEV), A=as_factor(NumAttributes))
 ```
 
-## Main Results
 
-First, we need to check whether there is an effect of Gamma (intensity of memory) and PTEV (intensity of event)
 
-```{r}
-ggplot(data=a,
-       aes(x=Day, y=Traumatic)) +
-  stat_summary(fun.data = mean_se, geom="line") +
-  #stat_summary(fun.data = mean_se, geom="errorbar") +
-  stat_summary(fun.data = mean_se, geom="point") +
-  facet_grid(PTEV ~ Gamma, labeller=label_both) +
-  theme_pander() +
-  ggtitle("Main Effects of Gamma and PTEV") +
-  ylab("Probability of Retriving a Traumatic Memory") +
-  annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="blue", alpha=0.2)
-```
-
-As expected, when PTEV = 1, there is no significant effect (the added value of a traumatic memory is zero). So, we can filter this value out in the following analysis
-
-### Distribution of Recovery Trajectories
+## Categorizing Recovery Trajectories
 
 According to many influential reviews, the recovery trajectories fro PTSD can be grouped into four categories:
 
@@ -167,42 +150,62 @@ classify <- function(days) {
 We then proceed to summarize the data according to their category:
 
 ```{r}
-
-a <- a %>% ungroup %>% mutate(PTEV = as_factor(PTEV),
-                              A = as_factor(NumAttributes))
-
-a <- a %>% select(Run, Day, PTEV, Gamma, PTES, W, NumAttributes, RuminationFrequency, MemoryEntropy, ChunkSimilarity, Traumatic)
-
-a <- a %>% arrange(Run, PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma)
-
 patterns <- a %>% 
   group_by(Run, PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma) %>%
   summarize(Trajectory = classify(Traumatic)) 
+```
 
-cpatterns <- patterns %>%
-  #mutate(Class=as_factor(class)) %>%
+
+## Results
+
+### Behavioral Data
+
+For each variable of interest, we are going to examine two forms of behavioral data:
+
+ 1. The average recovery trajectory, which indicates the probability of retrieving a traumatic memory over the number of days after the PTE; and
+ 2. The distribution of recovery trajectories, that is, the percentages at which each of the four main trajectories occurs in the data.  
+
+### General Results
+
+The two main parameters that affect the retrieval probability in the model are the intensity of the PTE (_PTEV_) and the vividness of memory recollection (_gamma_). First, we need to check whether there is an effect of Gamma (intensity of memory) and PTEV (intensity of event). Thus, we will first examine the general effects of these two variables on both of our dependent measures.
+
+```{r}
+ggplot(data=a,
+       aes(x=Day, y=Traumatic)) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  #stat_summary(fun.data = mean_se, geom="errorbar") +
+  stat_summary(fun.data = mean_se, geom="point") +
+  facet_grid(PTEV ~ Gamma, labeller=label_both) +
+  theme_pander() +
+  ggtitle("Main Effects of Gamma and PTEV") +
+  ylab("Probability of Retriving a Traumatic Memory") +
+  annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="red", alpha=0.2)
+```
+
+As expected, when PTEV = 1, there is no significant effect (the added value of a traumatic memory is zero). So, we can filter this value out in the following analysis
+
+In addition to the mean recovery curves, we also want to assess the percentage of trajectories.
+
+```{r fig.width=7, fig.height=7}
+G_patterns <- patterns %>%
   group_by(PTEV, Gamma, Trajectory) %>%
   summarize(Num=n() / 24) 
 
-ggplot(data=filter(cpatterns, PTEV != 1), aes(x="", y=Num, fill=Trajectory)) +
+ggplot(data=filter(G_patterns, PTEV != 1), aes(x="", y=Num, fill=Trajectory)) +
   geom_bar(width=1, stat = "identity") +
   facet_grid(PTEV ~ Gamma, labeller=label_both) +
   coord_polar("y", start=0) +
-  #scale_fill_brewer(palette="Blues") +
   scale_fill_brewer(palette="Set3") +
   xlab("") +
   ylab("") +
   ggtitle("Percentage of Recovery Trajectories") +
-  #geom_text(aes(y = Num, label=round(Num, 1))) +
   theme_pander()
-
-
 ```
 
 ### Effects of the Number of Attributes in a Memory
 
-The number of attributes in a memory is a computational proxy for the level of precision that an individual has in encoding the perceptual representations of an event. It has been found that individuals whose representation has greater precision (as indexed by mental imagery and perceptual priming) have worse outcomes from PTSD> 
-This is reflected in our data, as show bt the higher curves corresponding to greater number of attributes (_N_ = 6 vs. _N_ = 4).
+The number of attributes _A_ in a memory is a computational proxy for the level of precision that an individual has in encoding the perceptual representations of an event. It has been found that individuals whose representation has greater sensory details  (as indexed by mental imagery and perceptual priming) have worse outcomes from PTSD.   
+This is reflected in our data, as show bt the higher curves corresponding to greater number of attributes (_A_ = 6 vs. _A_ = 4).
 
 ```{r}
 ggplot(data=filter(a, PTEV != 1), 
@@ -217,7 +220,27 @@ ggplot(data=filter(a, PTEV != 1),
   annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="blue", alpha=0.2)
 ```
 
-### Effects of Working Memory
+In addition, we can also observe how the Number of Attributes per memory 
+
+```{r}
+A_patterns <- patterns %>%
+  group_by(PTEV, Gamma, Trajectory, NumAttributes) %>%
+  summarize(Num=n() / 12) %>%
+  mutate(Val=cumsum(Num))
+
+ggplot(data=filter(Apatterns, PTEV != 1), aes(x=NumAttributes, y=Num, fill=Trajectory)) +
+  geom_bar(stat = "identity", position="stack", col="white") +
+  facet_grid(PTEV ~ Gamma, labeller=label_both) +
+  scale_fill_brewer(palette="Accent") +
+  xlab("Number of Attributes (A)") +
+  ylab("Percentage of Trajectories") +
+  ggtitle("Percentage of Recovery Trajectories by Number of Attributes") +
+  geom_text(aes(label=percent(Num/100)),
+            position=position_stack(vjust=0.5)) +
+  theme_pander()
+```
+
+### Effects of Working Memory Campaciy
 
 It is known in the literature that Working Memory (and cognitive control, which is typically indexed by working memory tasks) is associated with better outcomes following PTSD. 
 
@@ -227,13 +250,32 @@ This is true in our simulations, as evidenced by the greater probability of retr
 ggplot(data=filter(a, PTEV != 1),
        aes(x=Day, y=Traumatic, col=W)) +
   stat_summary(fun.data = mean_se, geom="line") +
-  stat_summary(fun.data = mean_se, geom="errorbar") +
-  #stat_summary(fun.data = mean_se, geom="point") +
+  stat_summary(fun.data = mean_se, geom="errorbar", alpha=0.5) +
   facet_grid(PTEV ~ Gamma, labeller = label_both) +
   theme_pander() +
   ggtitle("Effect of Working Memory by Gamma and PTEV") +
   ylab("Probability of Retriving a Traumatic Memory") +
   annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="red", alpha=0.2)
+```
+
+Working memory capacity also has profound effects on the trajectories:
+
+```{r}
+W_patterns <- patterns %>%
+  group_by(PTEV, Gamma, Trajectory, W) %>%
+  summarize(Num=n() / 8) %>%
+  mutate(Val=cumsum(Num))
+
+ggplot(data=filter(W_patterns, PTEV != 1), aes(x=W, y=Num, fill=Trajectory)) +
+  geom_bar(stat = "identity", position="stack", col="white") +
+  facet_grid(PTEV ~ Gamma, labeller=label_both) +
+  scale_fill_brewer(palette="Accent") +
+  xlab("Working Memory (W)") +
+  ylab("Percentage of Trajectories") +
+  ggtitle("Percentage of Recovery Trajectories by WOrking Memory") +
+  geom_text(aes(label=percent(Num/100)),
+            position=position_stack(vjust=0.5)) +
+  theme_pander()
 ```
 
 ### Effect of Rumination and Negative Appraisal
@@ -245,25 +287,42 @@ We examined whether the tendency to ruminate or revisit the past traumatic exper
 ggplot(data=filter(a, PTEV != 1), 
        aes(x=Day, y=Traumatic, col=RuminationFrequency)) +
   stat_summary(fun.data = mean_se, geom="line") +
-  stat_summary(fun.data = mean_se, geom="errorbar") +
-  #stat_summary(fun.data = mean_se, geom="point") +
-  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES), 
-  #            method = "lm") +
+  stat_summary(fun.data = mean_se, geom="errorbar", alpha=0.5) +
   facet_grid(PTEV ~ Gamma, labeller = label_both) +
   theme_pander() +
+  ylab("Probability of Retriving a Traumatic Memory") +
   ggtitle("Effect of Spontaneous Retrievals by Gamma and PTEV") +
-  #scale_color_brewer(type='seq', palette = "GnBu") +
   annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="red", alpha=0.2)
 ```
 
-### Effects of Similarity
+And we can see the profound effects of spontaneous retrievals on recovery trajectories:
 
-Finally, the last factor we examined is the effect of the similarity __PTES__ between the PTE and the contextual events (_Q_). 
+```{r}
+R_patterns <- patterns %>%
+  group_by(PTEV, Gamma, Trajectory, RuminationFrequency) %>%
+  summarize(Num=n() / 12) %>%
+  mutate(Val=cumsum(Num))
+
+ggplot(data=filter(R_patterns, PTEV != 1), aes(x=RuminationFrequency, y=Num, fill=Trajectory)) +
+  geom_bar(stat = "identity", position="stack", col="white") +
+  facet_grid(PTEV ~ Gamma, labeller=label_both) +
+  scale_fill_brewer(palette="Accent") +
+  xlab("Number of Spontaneous Retrievals") +
+  ylab("Percentage of Trajectories") +  
+  ggtitle("Percentage of Recovery Trajectories by Number of Spontaneous Retrievals") +
+  geom_text(aes(label=percent(Num/100)),
+            position=position_stack(vjust=0.5)) +
+  theme_pander()
+```
+
+### Effects of Congruency
+
+Finally, the last factor we examined is the effect of the similarity or congruency __PTES__ between the PTE and the contextual events (_Q_). 
 
 ```{r}
 ggplot(data=filter(a, PTEV != 1), aes(x=Day, y=Traumatic, col=PTES)) +
   stat_summary(fun.data = mean_se, geom="line") +
-  stat_summary(fun.data = mean_se, geom="errorbar") +
+  stat_summary(fun.data = mean_se, geom="errorbar", alpha = 0.5) +
   #stat_summary(fun.data = mean_se, geom="point") +
   #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES), 
   #            method = "lm") +
@@ -275,4 +334,28 @@ ggplot(data=filter(a, PTEV != 1), aes(x=Day, y=Traumatic, col=PTES)) +
   #scale_color_viridis_d(option="C") +
   annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="red", alpha=0.2)
 ```
+
+And, again, here is the proportion of trajectories.
+
+```{r}
+S_patterns <- patterns %>%
+  group_by(PTEV, Gamma, Trajectory, PTES) %>%
+  summarize(Num=n() / 6) %>%
+  mutate(Val=cumsum(Num))
+
+ggplot(data=filter(Spatterns, PTEV != 1 & PTES != 0.75), aes(x=PTES, y=Num, fill=Trajectory)) +
+  geom_bar(stat = "identity", position="stack", col="white") +
+  facet_grid(PTEV ~ Gamma, labeller=label_both) +
+  scale_fill_brewer(palette="Accent") +
+  xlab("Congruency (PTES)") +
+  ylab("Percentage of Trajectories") +  
+  ggtitle("Percentage of Recovery Trajectories by Congruency") +
+  geom_text(aes(label=percent(Num/100)),
+            position=position_stack(vjust=0.5)) +
+  theme_pander()
+```
+
+### Effects on Hippocampus Size
+
+The neurobiological variable of interest in this simulation is the predicted hippocampus size. 
 

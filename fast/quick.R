@@ -89,7 +89,61 @@ cpatterns <- patterns %>%
   #mutate(Class=as_factor(class)) %>%
   group_by(PTEV, Gamma, Trajectory) %>%
   summarize(Num=n() / 24) %>%
-  ungroup()
+  mutate(Val=cumsum(Num))
+
+ggplot(data=filter(cpatterns, PTEV != 1), aes(x="", y=Num, fill=Trajectory)) +
+  geom_bar(width=1, stat = "identity") +
+  facet_grid(PTEV ~ Gamma, labeller=label_both) +
+  coord_polar("y", start=0) +
+  #scale_fill_brewer(palette="Blues") +
+  scale_fill_brewer(palette="Accent") +
+  xlab("") +
+  ylab("") +
+  ggtitle("Percentage of Recovery Trajectories") +
+  #geom_text(aes(y = Val-Num/2, label=percent(Num/100))) +
+  geom_text(aes(label=percent(Num/100)),
+            position=position_stack(vjust=0.5)) +
+  theme_pander()
+
+wpatterns <- patterns %>%
+  #mutate(Class=as_factor(class)) %>%
+  group_by(PTEV, Gamma, Trajectory, W) %>%
+  summarize(Num=n() / 8) %>%
+  mutate(Val=cumsum(Num))
+
+ggplot(data=filter(wpatterns, PTEV != 1), aes(x=W, y=Num, fill=Trajectory)) +
+  geom_bar(stat = "identity", position="stack", col="white") +
+  facet_grid(PTEV ~ Gamma, labeller=label_both) +
+  #coord_polar("y", start=0) +
+  #scale_fill_brewer(palette="Blues") +
+  scale_fill_brewer(palette="Accent") +
+  xlab("") +
+  ylab("") +
+  ggtitle("Percentage of Recovery Trajectories") +
+  #geom_text(aes(y = Val-Num/2, label=percent(Num/100))) +
+  geom_text(aes(label=percent(Num/100)),
+            position=position_stack(vjust=0.5)) +
+  theme_pander()
+
+Apatterns <- patterns %>%
+  #mutate(Class=as_factor(class)) %>%
+  group_by(PTEV, Gamma, Trajectory, NumAttributes) %>%
+  summarize(Num=n() / 12) %>%
+  mutate(Val=cumsum(Num))
+
+ggplot(data=filter(Apatterns, PTEV != 1), aes(x=NumAttributes, y=Num, fill=Trajectory)) +
+  geom_bar(stat = "identity", position="stack", col="white") +
+  facet_grid(PTEV ~ Gamma, labeller=label_both) +
+  #coord_polar("y", start=0) +
+  #scale_fill_brewer(palette="Blues") +
+  scale_fill_brewer(palette="Accent") +
+  xlab("") +
+  ylab("") +
+  ggtitle("Percentage of Recovery Trajectories") +
+  #geom_text(aes(y = Val-Num/2, label=percent(Num/100))) +
+  geom_text(aes(label=percent(Num/100)),
+            position=position_stack(vjust=0.5)) +
+  theme_pander()
 
 ggplot(data=filter(cpatterns, PTEV != 1), aes(x="", y=Num, fill=Trajectory)) +
   geom_bar(width=1, stat = "identity") +
@@ -119,15 +173,38 @@ ggplot(data=filter(a, PTEV != 1 & PTES ==0), aes(x=Day, y=Traumatic, col=NumAttr
 ggplot(data=a, aes(x=Day, y=Traumatic, col=W)) +
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_se, geom="errorbar") +
+  geom_ribbon(stat=mean_se) +
   #stat_summary(fun.data = mean_se, geom="point") +
   #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES), 
   #            method = "lm") +
   facet_grid(PTEV ~ Gamma, labeller = label_both) +
   theme_pander() +
   #scale_color_brewer(type='seq', palette = "Blues") +
-  ggtitle("Effect of Number of Attributes by Gamma and PTEV") +
+  ggtitle("Effect of Working Memory Capacity by Gamma and PTEV") +
   ylab("Probability of Retriving a Traumatic Memory") +
   annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="red", alpha=0.2)
+
+
+Spatterns <- patterns %>%
+  #mutate(Class=as_factor(class)) %>%
+  group_by(PTEV, Gamma, Trajectory, PTES) %>%
+  summarize(Num=n() / 6) %>%
+  mutate(Val=cumsum(Num))
+
+ggplot(data=filter(Spatterns, PTEV != 1), aes(x=PTES, y=Num, fill=Trajectory)) +
+  geom_bar(stat = "identity", position="stack", col="white") +
+  facet_grid(PTEV ~ Gamma, labeller=label_both) +
+  #coord_polar("y", start=0) +
+  #scale_fill_brewer(palette="Blues") +
+  scale_fill_brewer(palette="Accent") +
+  #xlab("") +
+  #ylab("") +
+  ggtitle("Percentage of Recovery Trajectories") +
+  #geom_text(aes(y = Val-Num/2, label=percent(Num/100))) +
+  geom_text(aes(label=percent(Num/100)),
+            position=position_stack(vjust=0.5)) +
+  theme_pander()
+
 
 ggplot(data=filter(a, RuminationFrequency==0), aes(x=Day, y=MemoryEntropy, col=PTES)) +
   stat_summary(fun.data = mean_se, geom="line") +
