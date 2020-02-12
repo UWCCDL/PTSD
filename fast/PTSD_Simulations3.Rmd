@@ -22,19 +22,21 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(ggplot2)
 library(ggthemes)
+library(scales)
 ```
 
 # PTSD Model: Analysis of Simulation 3
 
 ## Loading the Data
 
-The raw simulations are stored in a large datafile. An aggregated version of the dataset exist. 
+The raw simulations are stored in a large datafile. An aggregated version of the dataset exist.
 
-```{r}
+```{r loading, echo=FALSE, error=FALSE}
 d <- read_csv("simulations3.csv", col_types = cols())
 d <- d %>%
   mutate(Day = floor(Time / (60*60*24)) - 100,
-         Hour = floor((d$Time / 3600) %% 24))
+         Hour = floor((d$Time / 3600) %% 24),
+         RuminationFrequency=as_factor(RuminationFrequency))
 names(d)[18] <- "W"
 ```
 
@@ -42,7 +44,7 @@ names(d)[18] <- "W"
 
 First, let's check that the distribution of events over time (as approximated by retrieval times) follow a gamma distribution, as intended:
 
-```{r}
+```{r barplot}
 #ggplot(d, aes(x=Hour)) +
 #  geom_histogram(binwidth = 1, col="white", alpha=0.5, position="identity") +
 #  theme_pander()
@@ -59,35 +61,50 @@ The full data from SImulation 3 is way too large to handle (14G, containing `r d
 We begin by removing most of the days preceding the PTE:
 
 ```{r}
-d <- d %>% filter(Day > -20)
+d <- d %>% 
+  select(Run, Day, PTEV, Gamma, PTES, W, 
+         NumAttributes, RuminationFrequency, 
+         MemoryEntropy, ChunkSimilarity, Traumatic) %>%
+  filter(Day > -20)
 ```
 
 We then turn the various variables into factors, so that they can be grouped efficiently:
 
-```{r}
-d <- d%>% mutate(#RT = as_factor(RT), 
-                 Gamma=as_factor(Gamma),
-                 RuminationFrequency=as_factor(RuminationFrequency),
-                 #ANS = as_factor(ANS),
-                 W=as_factor(W),
-                 PTES = as_factor(PTES),
-                 PTEV = as_factor(PTEV),
-                 NumAttributes = as_factor(NumAttributes))
+```{r mutating}
+d <- d %>%
+  mutate(#RT = as_factor(RT), 
+    Gamma=as_factor(Gamma),
+    #RuminationFrequency=as_factor(RuminationFrequency),
+    #ANS = as_factor(ANS),
+    W=as_factor(W),
+    PTES = as_factor(PTES),
+    PTEV = as_factor(PTEV),
+    NumAttributes = as_factor(NumAttributes))
+```
 
+After transforming the dataset, we aggregate the data:
+
+```{r summarizing}
 # Reduce, summarizing across events 
 a <- d %>% 
   group_by(Day, PTES, PTEV, Run, Gamma, W, RuminationFrequency, NumAttributes) %>% 
   summarize_all(mean) 
+```
 
+And then we select the variables of interest, sorting the rows so that, for each run, the days are in ascending order.
 
+```{r sorting}
 a <- a %>% ungroup %>% mutate(PTEV = as_factor(PTEV),
                               A = as_factor(NumAttributes))
 
-a <- a %>% select(Run, Day, PTEV, Gamma, PTES, W, NumAttributes, RuminationFrequency, MemoryEntropy, ChunkSimilarity, Traumatic)
-a <- a %>% arrange(Run, PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma)
+a <- a %>% select(Run, Day, PTEV, Gamma, PTES, W, 
+                  NumAttributes, RuminationFrequency, 
+                  MemoryEntropy, ChunkSimilarity, Traumatic)
+
+a <- a %>% arrange(Run, PTEV, PTES, PTES, NumAttributes, 
+                   RuminationFrequency, W, Gamma)
 
 ```
-
 
 
 ## Categorizing Recovery Trajectories
@@ -151,7 +168,7 @@ We then proceed to summarize the data according to their category:
 
 ```{r}
 patterns <- a %>% 
-  group_by(Run, PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma) %>%
+  group_by(Run, PTEV, PTES, NumAttributes, RuminationFrequency, W, Gamma) %>%
   summarize(Trajectory = classify(Traumatic)) 
 ```
 
@@ -173,8 +190,8 @@ The two main parameters that affect the retrieval probability in the model are t
 ggplot(data=a,
        aes(x=Day, y=Traumatic)) +
   stat_summary(fun.data = mean_se, geom="line") +
-  #stat_summary(fun.data = mean_se, geom="errorbar") +
-  stat_summary(fun.data = mean_se, geom="point") +
+  stat_summary(fun.data = mean_se, geom="errorbar", alpha=0.5) +
+  #stat_summary(fun.data = mean_se, geom="point") +
   facet_grid(PTEV ~ Gamma, labeller=label_both) +
   theme_pander() +
   ggtitle("Main Effects of Gamma and PTEV") +
@@ -187,9 +204,11 @@ As expected, when PTEV = 1, there is no significant effect (the added value of a
 In addition to the mean recovery curves, we also want to assess the percentage of trajectories.
 
 ```{r fig.width=7, fig.height=7}
+
 G_patterns <- patterns %>%
   group_by(PTEV, Gamma, Trajectory) %>%
-  summarize(Num=n() / 24) 
+  summarize(Num=n() / 24) %>%
+  mutate(Val=cumsum(Num))
 
 ggplot(data=filter(G_patterns, PTEV != 1), aes(x="", y=Num, fill=Trajectory)) +
   geom_bar(width=1, stat = "identity") +
@@ -211,8 +230,8 @@ This is reflected in our data, as show bt the higher curves corresponding to gre
 ggplot(data=filter(a, PTEV != 1), 
        aes(x=Day, y=Traumatic, col=NumAttributes)) +
   stat_summary(fun.data = mean_se, geom="line") +
-  #stat_summary(fun.data = mean_se, geom="errorbar") +
-  stat_summary(fun.data = mean_se, geom="point") +
+  stat_summary(fun.data = mean_se, geom="errorbar",alpha=0.5) +
+  #stat_summary(fun.data = mean_se, geom="point") +
   facet_grid(PTEV ~ Gamma, labeller=label_both) +
   theme_pander() +
   ggtitle("Effect of Number of Attributes by Gamma and PTEV") +
@@ -228,7 +247,7 @@ A_patterns <- patterns %>%
   summarize(Num=n() / 12) %>%
   mutate(Val=cumsum(Num))
 
-ggplot(data=filter(Apatterns, PTEV != 1), aes(x=NumAttributes, y=Num, fill=Trajectory)) +
+ggplot(data=filter(A_patterns, PTEV != 1), aes(x=NumAttributes, y=Num, fill=Trajectory)) +
   geom_bar(stat = "identity", position="stack", col="white") +
   facet_grid(PTEV ~ Gamma, labeller=label_both) +
   scale_fill_brewer(palette="Accent") +
@@ -328,7 +347,7 @@ ggplot(data=filter(a, PTEV != 1), aes(x=Day, y=Traumatic, col=PTES)) +
   #            method = "lm") +
   facet_grid(PTEV ~ Gamma, labeller = label_both) +
   theme_pander() +
-  ggtitle("Effect of PTE similarity on Intrusion Probability")
+  ggtitle("Effect of PTE Congruency on Intrusion Probability")
   #scale_color_brewer(type='seq', palette = "Blues", direction=-1) +
   #scale_color_gradient() +
   #scale_color_viridis_d(option="C") +
@@ -343,7 +362,7 @@ S_patterns <- patterns %>%
   summarize(Num=n() / 6) %>%
   mutate(Val=cumsum(Num))
 
-ggplot(data=filter(Spatterns, PTEV != 1 & PTES != 0.75), aes(x=PTES, y=Num, fill=Trajectory)) +
+ggplot(data=filter(S_patterns, PTEV != 1), aes(x=PTES, y=Num, fill=Trajectory)) +
   geom_bar(stat = "identity", position="stack", col="white") +
   facet_grid(PTEV ~ Gamma, labeller=label_both) +
   scale_fill_brewer(palette="Accent") +
