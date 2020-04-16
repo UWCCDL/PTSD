@@ -13,8 +13,8 @@ curves <- curves %>%
 
 
 d <- read_csv("simulations3.csv", col_types = cols())
-d <- d %>% 
-  select(Run, Time, PTEV, Gamma, PTES, `IMAGINAL-ACTIVATION`, NumAttributes, 
+d <- d %>%
+  select(Run, Time, PTEV, Gamma, PTES, `IMAGINAL-ACTIVATION`, NumAttributes,
          RuminationFrequency, MemoryEntropy, ChunkSimilarity, Traumatic) %>%
   mutate(Day = floor(Time / (60*60*24)) - 100,
          Hour = floor((d$Time / 3600) %% 24),
@@ -25,21 +25,21 @@ d <- d %>%
          PTES = as_factor(PTES),
          PTEV = as_factor(PTEV),
          NumAttributes = as_factor(NumAttributes)) %>%
-  filter(Day > -20) 
-  
-  
+  filter(Day > -20)
+
+
 ggplot(d, aes(x=Hour, fill=RuminationFrequency)) +
   geom_histogram(binwidth = 1, col="white", alpha=0.5, position="identity") +
   #geom_density(bw = 1, col="white", alpha=0.5, position="identity") +
   theme_pander()
-  
+
 # Filter data we don't care
 
 
-# Reduce, summarizing across events 
-a <- d %>% 
-  group_by(Day, PTES, PTEV, Run, Gamma, W, RuminationFrequency, NumAttributes) %>% 
-  summarize_all(mean) 
+# Reduce, summarizing across events
+a <- d %>%
+  group_by(Day, PTES, PTEV, Run, Gamma, W, RuminationFrequency, NumAttributes) %>%
+  summarize_all(mean)
 
 
 a <- a %>% ungroup %>% mutate(PTEV = as_factor(PTEV),
@@ -66,14 +66,14 @@ classify <- function(days) {
     # t1 < t2
     if (!is.na(t23$p.value) & t23$p.value < 0.05) {
       # t2 <> t3
-      
+
       if (!is.na(t23$statistic) & t23$statistic > 0) {
         # t1 < t2, t2 > 3
         category <- "Recovery" #2  # Recovery
       } else {
         # t1 < t2, t2 < t3
         category <- "Delayed" # 3 # Delayed
-      } 
+      }
     } else {
       # t1 < t2, t2 = t3
       category <- "Chronic" # 1 # Chronic
@@ -91,9 +91,19 @@ classify <- function(days) {
   category
 }
 
-patterns <- a %>% 
+patterns <- a %>%
   group_by(Run, PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma) %>%
-  summarize(Trajectory = classify(Traumatic)) 
+  summarize(Trajectory = classify(Traumatic))
+
+patterns <- patterns %>% ungroup
+
+pattern_count <- patterns %>%
+  group_by(PTEV, Gamma, Trajectory, NumAttributes,
+           RuminationFrequency, PTES, W, Trajectory) %>%
+  summarize(Num=n()/50)
+
+write_csv(pattern_count, path="simulation3_trajectories.csv",
+          col_names = TRUE, quote_escape = "double")
 
 cpatterns <- patterns %>%
   #mutate(Class=as_factor(class)) %>%
@@ -165,13 +175,13 @@ ggplot(data=filter(cpatterns, PTEV != 1), aes(x="", y=Num, fill=Trajectory)) +
   ggtitle("Percentage of Recovery Trajectories") +
   #geom_text(aes(x=1, y = Num, label=round(Num, 1))) +
   theme_pander()
-  
+
 # Plot
 ggplot(data=filter(a, PTEV != 1), aes(x=Day, y=Traumatic, col=NumAttributes)) +
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_se, geom="errorbar", alpha=0.5) +
   #stat_summary(fun.data = mean_se, geom="point") +
-  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES), 
+  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES),
   #            method = "lm") +
   facet_grid(PTEV ~ Gamma, labeller=label_both) +
   theme_pander() +
@@ -184,7 +194,7 @@ ggplot(data=filter(a, PTEV != 1), aes(x=Day, y=Traumatic, col=W)) +
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_se, geom="errorbar", alpha=0.5) +
   #stat_summary(fun.data = mean_se, geom="point") +
-  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES), 
+  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES),
   #            method = "lm") +
   facet_grid(PTEV ~ Gamma, labeller = label_both) +
   theme_pander() +
@@ -207,7 +217,7 @@ ggplot(data=filter(Spatterns, PTEV != 1 & PTES != 0.75), aes(x=PTES, y=Num, fill
   #scale_fill_brewer(palette="Blues") +
   scale_fill_brewer(palette="Accent") +
   xlab("Congruency (C)") +
-  ylab("Percentage of Trajectories") +  
+  ylab("Percentage of Trajectories") +
   ggtitle("Percentage of Recovery Trajectories by Congruency") +
   #geom_text(aes(y = Val-Num/2, label=percent(Num/100))) +
   geom_text(aes(label=percent(Num/100)),
@@ -219,7 +229,7 @@ ggplot(data=filter(a, PTEV != 1), aes(x=Day, y=Traumatic, col=PTES)) +
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_se, geom="errorbar", alpha=0.5) +
   #stat_summary(fun.data = mean_se, geom="point") +
-  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES), 
+  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES),
   #            method = "lm") +
   facet_grid(PTEV ~ Gamma, labeller = label_both) +
   theme_pander() +
@@ -242,7 +252,7 @@ ggplot(data=filter(a, PTEV!=1), aes(x=Day, y=Traumatic, col=RuminationFrequency)
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_se, geom="errorbar", alpha=0.5) +
   #stat_summary(fun.data = mean_se, geom="point") +
-  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES), 
+  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES),
   #            method = "lm") +
   facet_grid(PTEV ~ Gamma, labeller = label_both) +
   theme_pander() +
@@ -258,7 +268,7 @@ ggplot(data=filter(Rpatterns, PTEV != 1), aes(x=RuminationFrequency, y=Num, fill
   #scale_fill_brewer(palette="Blues") +
   scale_fill_brewer(palette="Accent") +
   xlab("Number of Spontaneous Retrievals") +
-  ylab("Percentage of Trajectories") +  
+  ylab("Percentage of Trajectories") +
   ggtitle("Percentage of Recovery Trajectories by Number of Spontaneous Retrievals") +
   #geom_text(aes(y = Val-Num/2, label=percent(Num/100))) +
   geom_text(aes(label=percent(Num/100)),
@@ -269,7 +279,7 @@ ggplot(data=filter(a, RuminationFrequency == 0 & PTES==0), aes(x=Day, y=ChunkSim
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_se, geom="errorbar") +
   #stat_summary(fun.data = mean_se, geom="point") +
-  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES), 
+  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES),
   #            method = "lm") +
   facet_grid(PTEV ~ Gamma, labeller = label_both) +
   theme_pander() +
@@ -281,7 +291,7 @@ ggplot(data=a, aes(x=Day, y=MemoryEntropy, col=RuminationFrequency)) +
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_se, geom="errorbar") +
   #stat_summary(fun.data = mean_se, geom="point") +
-  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES), 
+  #geom_smooth(data=filter(a, Day > 0), aes(col=PTES, fill=PTES),
   #            method = "lm") +
   facet_grid(PTEV ~ Gamma, labeller = label_both) +
   theme_pander() +
@@ -327,7 +337,7 @@ ggplot(filter(hsize, PTEV!=1), aes(x=W, y=HippocampusDecrease, fill=RuminationFr
   #geom_text(aes(y = Val-Num/2, label=percent(Num/100))) +
   theme_pander() +
   theme(panel.background = element_rect(fill=NA, color="black")) +
-  annotate(geom="segment", x=-Inf, xend=Inf, y=0, yend=0) 
+  annotate(geom="segment", x=-Inf, xend=Inf, y=0, yend=0)
 
 hsize <- hsize %>%
   mutate(Condition=paste("W=", W, "; F=", RuminationFrequency))
@@ -375,7 +385,7 @@ hsize_r <- hsize %>%
   ungroup() %>%
   filter(PTEV != 1) %>%
   group_by(PTEV, PTES, PTES, NumAttributes, RuminationFrequency, W, Gamma, Condition) %>%
-  summarize(R = cor(MeanTraumatic, HippocampusDecrease)) 
+  summarize(R = cor(MeanTraumatic, HippocampusDecrease))
 
 hsize_r <- hsize_r %>%
   ungroup() %>%
@@ -395,7 +405,7 @@ ggplot(filter(hsize_r, PTEV!=1), aes(x=PTES, y=R, col=Condition)) +
 
 
 
-trend <- a %>% 
+trend <- a %>%
   filter(PTEV == 1) %>%
   group_by(Day) %>%
   summarize(Baseline = mean(MemoryEntropy))
