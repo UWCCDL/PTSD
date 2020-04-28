@@ -56,7 +56,7 @@ ggplot(d, aes(x=Hour, fill=RuminationFrequency)) +
 
 ### Simplify and Aggregate the Data
 
-The full data from SImulation 3 is way too large to handle (14G, containing `r dim(d)[1]` obserbations of `r dim(d)[2]` variables). So we need to reduce it and simplify it.
+The full data from Simulation 3 is way too large to handle (14G, containing `r dim(d)[1]` obserbations of `r dim(d)[2]` variables). So we need to reduce it and simplify it.
 
 We begin by removing most of the days preceding the PTE:
 
@@ -87,7 +87,9 @@ After transforming the dataset, we aggregate the data:
 ```{r summarizing}
 # Reduce, summarizing across events 
 a <- d %>% 
-  group_by(Day, PTES, PTEV, Run, Gamma, W, RuminationFrequency, NumAttributes) %>% 
+  group_by(Day, PTES, PTEV, Run, 
+           Gamma, W, RuminationFrequency, 
+           NumAttributes) %>% 
   summarize_all(mean) 
 ```
 

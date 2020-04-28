@@ -4,7 +4,7 @@ library(tidyverse)
 library(ggplot2)
 library(scales)
 library(ggthemes)
-library(hrbrthemes)
+#library(hrbrthemes)
 
 time = seq(-20, 60, 1)
 curves <- data.frame(Time=time, Chronic=time, Recovery=time, Resilient=time, Delayed=time)
@@ -100,7 +100,7 @@ patterns <- patterns %>% ungroup
 pattern_count <- patterns %>%
   group_by(PTEV, Gamma, Trajectory, NumAttributes,
            RuminationFrequency, PTES, W, Trajectory) %>%
-  summarize(Num=n()/50)
+  summarize(Proportion = n() / 50)
 
 write_csv(pattern_count, path="simulation3_trajectories.csv",
           col_names = TRUE, quote_escape = "double")
@@ -331,7 +331,7 @@ ggplot(filter(hsize, PTEV!=1), aes(x=W, y=HippocampusDecrease, fill=RuminationFr
   facet_grid(PTEV ~ Gamma, labeller=label_both) +
   #coord_polar("y", start=0) +
   #scale_fill_brewer(palette="Blues") +
-  scale_fill_brewer(palette="Blues") +
+  #scale_fill_brewer(palette="Blues") +
   xlab("Working Memory Capacity") +
   ylab("Percentage Decrease in Hippocampus Volume") +
   #geom_text(aes(y = Val-Num/2, label=percent(Num/100))) +
@@ -344,7 +344,7 @@ hsize <- hsize %>%
 
 
 ggplot(filter(hsize, PTEV!=1), aes(x=MeanTraumatic, y=HippocampusDecrease, col=Condition)) +
-  geom_point(alpha=.5, size=0.2) +
+  geom_point(alpha=.75, size=0.1) +
   #geom_density_2d() +
   facet_grid(PTEV ~ Gamma, labeller=label_both) +
   scale_color_brewer(palette="Paired") +
@@ -357,13 +357,15 @@ ggplot(filter(hsize, PTEV!=1), aes(x=MeanTraumatic, y=HippocampusDecrease, col=C
   theme_pander() +
   theme(panel.background=element_rect(fill="NA", colour="black"))
 
-ggplot(filter(hsize, PTEV!=1 & PTES==0), aes(x=MeanSimilarity, y=HippocampusDecrease, col=Condition)) +
+ggplot(filter(hsize, PTEV!=1 & PTES==0), aes(x=MeanSimilarity,
+                                             y=HippocampusDecrease,
+                                             col=W)) +
   #geom_point(alpha=.5, size=0.2) +
   geom_density_2d() +
   facet_grid(PTEV ~ Gamma, labeller=label_both) +
-  scale_color_brewer(palette="Paired") +
+  scale_color_brewer(palette="Dark2") +
   #geom_smooth(method = "lm", formula = y ~ x, col="black", fullrange= T) +  theme_pander() +
-  geom_smooth(method = "lm", aes(fill=Condition), se=F) +
+  geom_smooth(method = "lm", aes(fill=W), se=F) +
   ylab("Percentage Decrease in Hippocampus Volume") +
   xlab("Probability of Traumatic Memory Intrusion (Day 50-60)") +
   ggtitle("Symptom Severty Correlates With\nHippocampal Volume Decrease") +
