@@ -3,7 +3,7 @@
 This repository contains the code of an ACT-R model designed to
 capture the dynamics of intrusive memory retrievals in PTSD. This in
 an ongoing collaboration with Briana Smith (UW Bioengineering) and
-Lori Zoellner (UW Psychology).
+[Lori Zoellner](https://faculty.washington.edu/zoellner/wp/) (UW Psychology).
 
 ## Theory and Description
 
