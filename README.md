@@ -2,8 +2,8 @@
 
 This repository contains the code of an ACT-R model designed to
 capture the dynamics of intrusive memory retrievals in PTSD. This in
-an ongoing collaboration with Briana Smith (UW Bioengineering) and
-[Lori Zoellner](https://faculty.washington.edu/zoellner/wp/) (UW Psychology).
+an ongoing collaboration with Briana Smith of [UW Bioengineering](https://bioe.uw.edu/) and
+[Lori Zoellner](https://psych.uw.edu/directory/2704) of [UW Psychology](https://psych.uw.edu/) and [UWCATS](https://faculty.washington.edu/zoellner/wp/).
 
 ## Theory and Description
 
@@ -29,19 +29,20 @@ _B_(_m_) = log ∑_i _t_(_i_)^-_d_
 
 where _t_(_i_) is the time elapsed since the creation of _i_ and _d_ is an individual-specific rate of forgetting.  The contextual activation _S_(_m_) is related to the associated strength sq,m between each current context’s cue q (that is, any feature the the current state of the environment) and m: 
 
-S(m) = ∑ q W sq➝m 	
+S(m) = ∑ _q_ _WS(q➝m)_ 	
 
-Where W represents the amount of attention given to the context. The
-strength between cues and memories is calculated through a Bayesian
-analysis, and reflects the probability of m being retrieved in the
-presence of q.
+Where _W_ represents the amount of attention given to the context. The
+strength between cues and memories _S(q➝m)_ is calculated through a Bayesian
+analysis, and reflects the probability of _m_ being retrieved in the
+presence of _q_.
 
 Finally, the emotional intensity of a memory is represented by the
-term γI(m), where I(m) is the intensity (i.e., a metric summarizing
+term γ_I_(_m_), where _I_(_m_) is the intensity (i.e., a metric summarizing
 arousal and value) of the memory at the moment of its creation and γ
 is free parameter that captures an individual’s specific recollection
-vividness. Thus, the final activation of a memory is A(m) = B(m) +
-S(m) + γI(m)
+vividness. Thus, the final activation of a memory is
+
+_A_(_m_) = _B_(_m_) + _S_(_m_) + γ_I_(_m_)
 
 
 ### Biological Interpretation of the Model 
@@ -210,3 +211,9 @@ desired parameters:
 (run-simulations sim)
 (quit)
 ```
+
+## Publications
+
+The following publicatins are based on the model:
+
+* Smith, B. M., Chiu, M., Yang, Y. C., Sibert, C., & Stocco, A. (2020). Modeling the Effects of Post-Traumatic Stress on Hippocampal Volume. _Proceedings of the 18th International Conference on Cognitive Modeling_.
