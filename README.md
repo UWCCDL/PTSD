@@ -1,9 +1,69 @@
-# Fast, Lisp-based implementation of the ACT-R model of intrusive memories in PTSD 
+# An ACT-R Model of Intrusive Memories in PTSD
 
-## The "Fast" version of the PTSD code
+This repository contains the code of an ACT-R model designed to
+capture the dynamics of intrusive memory retrievals in PTSD. This in
+an ongoing collaboration with Briana Smith (UW Bioengineering) and
+Lori Zoellner (UW Psychology).
 
-This folder contains a "fast" implementation of the Python PTSD code
-found in this main repository. The fast implementation is needed
+## Theory and Description
+
+This model is based on the Bayesian memory model developed by Anderson
+(1990) and currently implemented in the ACT-R cognitive
+architecture. Within this framework, In this model, the probability of
+retrieving a memory _m_ is proportional to its activation _A_(_m_). A
+memory’s activation is, in turn, the sum of three components: a
+base-level activation _B_(_m_), a contextual or "spreading" activation
+_S_(_m_), and the emotional intensity of the memory at the time of its
+creation, _I_(_m_).
+
+
+The base-level activation _B_(_m_) reflects the history of a
+memory. For each memory _m_, multiple traces _i_ exist, each
+corresponding to an episode in which m was retrieved or
+re-encoded. The activation of each trace _i_ decays with time, and the
+activation of _m_ is the sum of the decaying activations of all its
+traces _i_:
+
+
+_B_(_m_) = log ∑_i _t_(_i_)^-_d_
+
+where _t_(_i_) is the time elapsed since the creation of _i_ and _d_ is an individual-specific rate of forgetting.  The contextual activation _S_(_m_) is related to the associated strength sq,m between each current context’s cue q (that is, any feature the the current state of the environment) and m: 
+
+S(m) = ∑ q W sq➝m 	
+
+Where W represents the amount of attention given to the context. The
+strength between cues and memories is calculated through a Bayesian
+analysis, and reflects the probability of m being retrieved in the
+presence of q.
+
+Finally, the emotional intensity of a memory is represented by the
+term γI(m), where I(m) is the intensity (i.e., a metric summarizing
+arousal and value) of the memory at the moment of its creation and γ
+is free parameter that captures an individual’s specific recollection
+vividness. Thus, the final activation of a memory is A(m) = B(m) +
+S(m) + γI(m)
+
+
+### Biological Interpretation of the Model 
+
+All of these terms were derived from a Bayesian analysis of memory
+demands (Smith et a., 2020). Furthermore, each of them can be put into
+correspondence with a specific brain circuit that is known to play a
+causal role in intrusive memories. Specifically, B(m) reflects the
+contribution of the hippocampus and the medial temporal lobe in memory
+encoding and maintenance; S(m) reflects the role of
+prefrontal-thalamic projections in guiding memory retrieval in the
+appropriate context; I(m) reflects the contribution of the amygdala to
+emotion processing and its effects on the hippocampus, and γ reflects
+the functional connectivity between the amygdala and the hippocampus
+(Figure ZA).
+
+
+## Implementation
+
+The `model` folder contains the current, "fast", Lisp-based  implementation of the model. The
+implementation is based on the original Python/Lisp model that can
+still be found in he `old` folder. The fast implementation is needed
 because the Python code can run incredbly slow. Most of the addition
 time is spent in coordinated JSON RPC calls through TCP/IP protocol
 between the ACT-R core and the Python client.
@@ -17,23 +77,24 @@ general priciples are as such:
   that manages simulations.
 
   2. All the original Python commands that track the model execution
-  have been translated into equivalent ACT-R "hooks" Lisp functions.  
+  have been translated into equivalent ACT-R "hooks" Lisp functions.
 
-  3. All the commands setting have been removed from the
+  3. The `ptsd-mdoel.lisp` file contains the main ACT-R code that
+  manage the model's cognitive cycle.
+
+  4. All the commands setting have been removed from the
   `ptsd-model.lisp` file, and are instead set directly through Lisp
   code at the beginnig of every simulation (__Note__: this is clearly
   where the Lisp code diverges from the Python code)
 
-In general, only two minor adjustments are 
-
-# Compatibility
+### Compatibility
 
 The "fast" Lisp code is __entirely incompatible__ with the Python
 code. You can use one or the other, but not both. In fact, the Lisp
 code assumes that no JSON RPC system even exists, and replaces all of
 the command calls with Lisp-level hook functions.
 
-# Usage
+### Usage
 
 The only way to use the Fast code is through a Lisp interpreter, after
 ACT-R has been loaded. If you are using the Stand-Alone version of
@@ -85,7 +146,7 @@ of the `mysim` object. The trace can be saved to a file:
 (save_trace mysim "mysim.txt")
 ```
 
-## Parameters
+### Parameters
 
 As in the Python code, the following parameters can be set for each
 simulation. This being Lisp code, none of the names are actually
@@ -123,7 +184,7 @@ case-sensitive.
   check is performed on their consistency.
 
 
-## Example code
+### Example code
 
 The `simulations.py` file provide an example of script that can be
 used to generate Lisp code that manages and runs simulations. It
