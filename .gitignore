@@ -13,3 +13,5 @@
 
 # Ignore simulation temporary files
 pids.txt
+simulations2.csv
+simulations3.csv
