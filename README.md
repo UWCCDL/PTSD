@@ -42,7 +42,7 @@ arousal and value) of the memory at the moment of its creation and γ
 is free parameter that captures an individual’s specific recollection
 vividness. Thus, the final activation of a memory is
 
-_A_(_m_) = _B_(_m_) + _S_(_m_) + γ_I_(_m_)
+_A_(_m_) = _B_(_m_) + _S_(_m_) + γ _I_(_m_)
 
 
 ### Biological Interpretation of the Model 
