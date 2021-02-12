@@ -25,6 +25,8 @@ library(scales)
 library(ggthemes)
 library(viridis)
 library(ggsci)
+library(kableExtra)
+library(xtable)
 ```
 
 
@@ -96,10 +98,10 @@ ggplot(filter(a, I != 1), aes(x=Day, y=Traumatic,
   stat_summary(fun.data = mean_se, geom="line") +
   #stat_summary(fun.data = mean_se, geom="point", alpha=0.25) +
   #stat_summary(fun.data = mean_sdl, geom="errorbar", alpha = 0.25) +
-  stat_summary(fun.data = mean_sdl, geom="ribbon", alpha = 0.2, col=NA) +
+  stat_summary(fun.data = mean_se, geom="ribbon", alpha = 0.2, col=NA) +
   #geom_smooth(method = "lm", formula = y ~ x, col="black", fullrange= T) +  theme_pander() +
   #geom_smooth(method = "lm", aes(fill=Condition), se=F) +
-  ylab("Probability of Traumatic Memory Intrusion") +
+  ylab("Probability of Memory Intrusion") +
   xlab("Day") +
   ggtitle("Frequency of Memory Intrusions Following PTE") +
   annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="red", alpha=0.2) +
@@ -202,18 +204,62 @@ classify <- function(days) {
 
 patterns <- a %>%
   group_by(Run, I, PTES, NumAttributes, RuminationFrequency, W, gamma) %>%
-  summarize(Trajectory = classify(Traumatic))
+  dplyr::summarize(Trajectory = classify(Traumatic))
 
 patterns <- patterns %>% ungroup
+```
 
+We can now plot the percentages and the patterns by trajectory:
+
+```{r}
+
+z <- inner_join(a, patterns)
+
+plots <- z %>%
+  group_by(Day, Trajectory) %>%
+  dplyr::summarize(Traumatic=mean(Traumatic))
+
+
+props <- z %>%
+  filter(I %in% c(20, 40,60), gamma == 0.8) %>%
+  group_by(Trajectory) %>%
+  dplyr::summarize(N = length(Trajectory)) %>%
+  dplyr::mutate(Prop = N/sum(N))
+
+props %>%
+  xtable() %>%
+  kable(digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+
+And here is a visual representation of the trajectories.
+
+```{r}
+ggplot(filter(z, I != 1, gamma==0.8), 
+       aes(x=Day, y=Traumatic, col=Trajectory, fill=Trajectory)) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  #stat_summary(fun.data = mean_se, geom="point", alpha=0.25) +
+  stat_summary(fun.data = mean_cl_normal, 
+               geom="ribbon", alpha = 0.25, col=NA) +
+  #scale_x_continuous(breaks=seq(-20, 60, 10)) +
+  coord_cartesian(ylim=c(0, 0.35)) +
+  scale_color_jama() +
+  scale_fill_jama() +
+  theme_pander()
+```
+
+Distributions of Patterns Across Factors 
+
+```{r}
 pattern_count <- patterns %>%
   group_by(I, gamma, Trajectory, NumAttributes,
            RuminationFrequency, PTES, W) %>%
-  summarize(Proportion = n() / 50)
+  dplyr::summarize(Proportion = n() / 50)
 
 W_patterns <- patterns %>%
   group_by(I, Trajectory, W) %>%
-  summarize(Num=n() / 24) %>%
+  dplyr::summarize(Num=n() / 24) %>%
   mutate(Val=cumsum(Num))
 
 W_patterns$Trajectory <- factor(W_patterns$Trajectory, 
@@ -228,7 +274,7 @@ ggplot(data=filter(W_patterns, I != 1), aes(x="", y=Num/100, fill=Trajectory)) +
   #scale_fill_brewer(palette="Accent") +
   xlab("Working Memory (W)") +
   ylab("Percentage of Trajectories") +
-  ggtitle("Predicted Percentage of Recovery Trajectories") +
+  ggtitle("Predicted Recovery Trajectories") +
   geom_text(aes(label=percent(Num/100, .1)),
             position=position_stack(vjust=0.5)) +
   theme_pander()
@@ -265,7 +311,7 @@ size.
 hsize <- a %>%
   filter(Day > 49) %>%
   group_by(Run, I, PTES, NumAttributes, RuminationFrequency, W, gamma) %>%
-  summarize(H = h_entropy(MemoryEntropy) - H1,
+  dplyr::summarize(H = h_entropy(MemoryEntropy) - H1,
             HippocampusDecrease = 100*(mean(MemoryEntropy)/H1 - 1),
             MeanTraumatic = mean(Traumatic),
             MeanSimilarity = mean(ChunkSimilarity))
@@ -426,7 +472,7 @@ hsize_r <- hsize %>%
   ungroup() %>%
   filter(I != 1) %>%
   group_by(I, PTES, NumAttributes, RuminationFrequency, W, gamma, Condition) %>%
-  summarize(R = cor(MeanTraumatic, HippocampusDecrease))
+  dplyr::summarize(R = cor(MeanTraumatic, HippocampusDecrease))
 
 hsize_r <- hsize_r %>%
   ungroup() %>%
@@ -449,7 +495,7 @@ ggplot(filter(hsize_r, I != 1), aes(x=PTES, y=R, col=Condition)) +
 trend <- a %>%
   filter(I == 1) %>%
   group_by(Day) %>%
-  summarize(Baseline = mean(MemoryEntropy))
+  dplyr::summarize(Baseline = mean(MemoryEntropy))
 
 a <- a %>%
   mutate(HippocampusSize = MemoryEntropy - trend$Baseline)
