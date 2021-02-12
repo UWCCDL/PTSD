@@ -27,7 +27,7 @@ traces _i_:
 
 _B_(_m_) = log ∑_i _t_(_i_)^-_d_
 
-where _t_(_i_) is the time elapsed since the creation of _i_ and _d_ is an individual-specific rate of forgetting.  The contextual activation _S_(_m_) is related to the associated strength sq,m between each current context’s cue q (that is, any feature the the current state of the environment) and m: 
+where _t_(_i_) is the time elapsed since the creation of _i_ and _d_ is an individual-specific rate of forgetting.  The contextual activation _S_(_m_) is related to the associated strength sq,m between each current context’s cue _q_ (that is, any feature the the current state of the environment) and m: 
 
 S(m) = ∑ _q_ _WS(q➝m)_ 	
 
@@ -37,7 +37,7 @@ analysis, and reflects the probability of _m_ being retrieved in the
 presence of _q_.
 
 Finally, the emotional intensity of a memory is represented by the
-term γ_I_(_m_), where _I_(_m_) is the intensity (i.e., a metric summarizing
+term γ _I_(_m_), where _I_(_m_) is the intensity (i.e., a metric summarizing
 arousal and value) of the memory at the moment of its creation and γ
 is free parameter that captures an individual’s specific recollection
 vividness. Thus, the final activation of a memory is
@@ -47,17 +47,14 @@ _A_(_m_) = _B_(_m_) + _S_(_m_) + γ _I_(_m_)
 
 ### Biological Interpretation of the Model 
 
-All of these terms were derived from a Bayesian analysis of memory
-demands (Smith et a., 2020). Furthermore, each of them can be put into
-correspondence with a specific brain circuit that is known to play a
-causal role in intrusive memories. Specifically, B(m) reflects the
+Each of these terms can be put into correspondence with a specific brain circuit that is known to play a
+causal role in intrusive memories. Specifically, _B_(_m_) reflects the
 contribution of the hippocampus and the medial temporal lobe in memory
-encoding and maintenance; S(m) reflects the role of
+encoding and maintenance; _S_(_m_) reflects the role of
 prefrontal-thalamic projections in guiding memory retrieval in the
-appropriate context; I(m) reflects the contribution of the amygdala to
+appropriate context; _I_(_m_) reflects the contribution of the amygdala to
 emotion processing and its effects on the hippocampus, and γ reflects
-the functional connectivity between the amygdala and the hippocampus
-(Figure ZA).
+the functional connectivity between the amygdala and the hippocampus.
 
 
 ## Implementation
