@@ -1,0 +1,503 @@
+---
+title: "Analysis of PTSD Model Simulations"
+author: "Andrea Stocco"
+date: "2/7/2021"
+output:
+  html_document:
+    code_folding: hide
+    theme: yeti
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  word_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(scales)
+library(ggthemes)
+library(viridis)
+library(ggsci)
+library(kableExtra)
+library(xtable)
+```
+
+
+# Load and Transform the Data
+
+First, we are going to load the "aggregated" version of the simulations, with 
+the events already aggregated by day. 
+
+```{r load}
+a <- read_csv(gzfile("../simulations/simulation3_aggregated.csv.gz"),
+              col_types = cols())
+```
+
+Then, we are going to rename the simulation variables to make them consistent with
+the names used in published papers:
+
+```{r rename}
+a <- a %>%
+  rename(I = PTEV) %>%
+  rename(gamma = Gamma) %>%
+  mutate(I = as_factor(I)) %>%
+  mutate(gamma = as_factor(gamma)) %>%
+  mutate(W = as_factor(W))
+```
+
+# Daily Memory Intrusions
+
+At this point, we can visualize the probability of traumatic memory intrusions 
+during the day.
+
+```{r daily-intrusions}
+ggplot(filter(a, I != 1), aes(x=Day, y=Traumatic, col=I)) +
+  #geom_point(alpha=.05, size=0.1) +
+  #geom_density_2d() +
+  #scale_color_jco() +
+  scale_color_viridis(option = "plasma", end=0.8, discrete = T) +
+  facet_grid(~ W, labeller=label_both) +
+  #scale_color_brewer(palette="Dark2") +
+  stat_summary(fun.data = mean_se, geom="line") +
+  stat_summary(fun.data = mean_se, geom="point", alpha=0.25) +
+  stat_summary(fun.data = mean_cl_boot, geom="errorbar", alpha = 0.5) +
+  #geom_smooth(method = "lm", formula = y ~ x, col="black", fullrange= T) +  theme_pander() +
+  #geom_smooth(method = "lm", aes(fill=Condition), se=F) +
+  ylab("Probability of Traumatic Memory Intrusion") +
+  xlab("Day") +
+  ggtitle("Frequency of Memory Intrusions\nFollowing a Traumatic Event") +
+  #annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="red", alphaa=0.2) +
+  annotate("segment", x=-0.5, xend=-0.5,
+           y=-Inf, yend=Inf, col="black", lty=2, size=1) +
+  annotate("rect", xmin=50, xmax=60,
+           ymin=-Inf, ymax=Inf, fill="red", alpha=0.2)+
+  theme_pander() +
+  theme(legend.position = "bottom") #+
+  #theme(panel.background=element_rect(fill="NA", colour="black"))
+```
+
+A more complete visualization:
+
+```{r}
+ggplot(filter(a, I != 1), aes(x=Day, y=Traumatic, 
+                              col=gamma, fill=gamma)) +
+  #geom_point(alpha=.05, size=0.1) +
+  #geom_density_2d() +
+  facet_grid(W~I, labeller=label_both) +
+  #scale_color_brewer(palette="Dark2") +
+  #scale_color_d3() +
+  scale_color_viridis(discrete = T, end = .8, option = "plasma") +
+  scale_fill_viridis(discrete = T, end = .8, option = "plasma") +
+  stat_summary(fun.data = mean_se, geom="line") +
+  #stat_summary(fun.data = mean_se, geom="point", alpha=0.25) +
+  #stat_summary(fun.data = mean_sdl, geom="errorbar", alpha = 0.25) +
+  stat_summary(fun.data = mean_se, geom="ribbon", alpha = 0.2, col=NA) +
+  #geom_smooth(method = "lm", formula = y ~ x, col="black", fullrange= T) +  theme_pander() +
+  #geom_smooth(method = "lm", aes(fill=Condition), se=F) +
+  ylab("Probability of Memory Intrusion") +
+  xlab("Day") +
+  ggtitle("Frequency of Memory Intrusions Following PTE") +
+  annotate("rect", xmin=-2, xmax=2, ymin=-Inf, ymax=Inf, fill="red", alpha=0.2) +
+
+  #annotate("rect", xmin=50, xmax=60,
+  #         ymin=-Inf, ymax=Inf, fill="black", alpha=0.2)+
+  theme_pander() +
+  #theme(legend.position = "bottom") +
+  theme(panel.background=element_rect(fill="NA", colour="black"))
+```
+
+# Recovery Trajectories
+
+To identify a recovery trajectory, we need to first define a classification 
+function.
+
+
+First the model calculates three average values:
+
+1. The mean probability _P(baseline)_ of retrieving intrusive memories in the 10 days 
+  preceding the PTE, or _baseline_ period. By definition, this is always zero.
+  
+2. The mean probability _P(acute)_ of retrieving intrusive memories in the 10 days 
+  following the PTE, or during the _acute_ period.
+  
+3. The mean probability _P(chronic)_ of retrieving intrusive memories in the last 
+  ten days of the second month after the PTE (i.e, days 51-60), or the _chronic_ 
+  period.
+  
+Then, the model calculates two statistical tests:
+
+1. A _t_-test between the baseline and acute period, or _acute test_; and 
+2. A _t_-test between the acute-period and the chronic period, or _chronic test_.
+
+And finally we apply the following decision tree:
+
+1. If the acute test is significant at p < .05 (Pacute > Pbaseline), then
+   
+   1.1. If the chronic test is also significant at _p_ < .05, and Pchronic > Pacute, 
+         we classify the trajectory as **Delayed**.
+
+   1.2. If the chronic test is significant at _p_ < .05 but 
+        _P(chronic)_ < _P(acute)_, then we classify the trajectory as **Recovery**;
+        
+   1.3. If the chronic test is non-significant, then _P(chronic)_ ~ _P(acute)_ , 
+        and we classify the trajectory as **Chronic**.
+
+2. If, instead, the acute test is not significant and _P(acute)_ ~ _P(baseline)_, 
+   then:
+   
+   2.1. If the chronic test is significant at _p_ < .05, then 
+        _P(chronic)_ > _P(acute)_, and we classify the trajectory as **Delayed**.
+   
+   2.2 If the chronic test is also not significant, then 
+       _P(chronic)_ ~ _P(baseline)_ ~ _P(acute)_, and we classify the trajectory
+       as **Resilient**.
+
+```{r classify}
+# Classifies people based on trajectory:
+# Chronic = 1
+# Recovery =2
+# Delay    =3
+# resilient= 4
+#
+classify <- function(days) {
+  g1 <- days[10:19]
+  g2 <- days[21:30]
+  g3 <- days[70:79]
+  t12 <- t.test(g1, g2)
+  t23 <- t.test(g2, g3)
+  category <- 0
+  if (!is.na(t12$p.value) & t12$p.value < 0.05) {
+    # t1 < t2
+    if (!is.na(t23$p.value) & t23$p.value < 0.05) {
+      # t2 <> t3
+
+      if (!is.na(t23$statistic) & t23$statistic > 0) {
+        # t1 < t2, t2 > 3
+        category <- "Recovery" #2  # Recovery
+      } else {
+        # t1 < t2, t2 < t3
+        category <- "Delayed" # 3 # Delayed
+      }
+    } else {
+      # t1 < t2, t2 = t3
+      category <- "Chronic" # 1 # Chronic
+    }
+  } else {
+    # t1 == t2
+    if (!is.na(t23$p.value) & t23$p.value < 0.05) {
+      # t1 == t2, t2 < t3
+      category <- "Delayed" #3 # Delayed
+    } else {
+      # t1 == t2, t2 = t3
+      category <- "Resilient" # 4 # Resilient
+    }
+  }
+  category
+}
+
+patterns <- a %>%
+  group_by(Run, I, PTES, NumAttributes, RuminationFrequency, W, gamma) %>%
+  dplyr::summarize(Trajectory = classify(Traumatic))
+
+patterns <- patterns %>% ungroup
+```
+
+We can now plot the percentages and the patterns by trajectory:
+
+```{r}
+
+z <- inner_join(a, patterns)
+
+plots <- z %>%
+  group_by(Day, Trajectory) %>%
+  dplyr::summarize(Traumatic=mean(Traumatic))
+
+
+props <- z %>%
+  filter(I !=1 , gamma == 0.8) %>%
+  group_by(Trajectory) %>%
+  dplyr::summarize(N = length(Trajectory)) %>%
+  dplyr::mutate(Prop = N/sum(N))
+
+props %>%
+  xtable() %>%
+  kable(digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+
+And here is a visual representation of the trajectories.
+
+```{r}
+ggplot(filter(z, I != 1, gamma==0.8), 
+       aes(x=Day, y=Traumatic, col=Trajectory, fill=Trajectory)) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  #stat_summary(fun.data = mean_se, geom="point", alpha=0.25) +
+  stat_summary(fun.data = mean_cl_normal, 
+               geom="ribbon", alpha = 0.25, col=NA) +
+  #scale_x_continuous(breaks=seq(-20, 60, 10)) +
+  coord_cartesian(ylim=c(0, 0.35)) +
+  scale_color_jama() +
+  scale_fill_jama() +
+  theme_pander()
+```
+
+Distributions of Patterns Across Factors 
+
+```{r}
+pattern_count <- patterns %>%
+  group_by(I, gamma, Trajectory, NumAttributes,
+           RuminationFrequency, PTES, W) %>%
+  dplyr::summarize(Proportion = n() / 50)
+
+W_patterns <- patterns %>%
+  group_by(I, Trajectory, W) %>%
+  dplyr::summarize(Num=n() / 24) %>%
+  mutate(Val=cumsum(Num))
+
+W_patterns$Trajectory <- factor(W_patterns$Trajectory, 
+                               levels = c("Resilient", "Delayed", "Recovery",  "Chronic"))
+
+ggplot(data=filter(W_patterns, I != 1), aes(x="", y=Num/100, fill=Trajectory)) +
+  geom_bar(stat = "identity", col="white", width=1) +
+  facet_grid(W ~ I, labeller=label_both) +
+  coord_polar("y", start=0) +
+  scale_fill_d3() +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 2L)) +
+  #scale_fill_brewer(palette="Accent") +
+  xlab("Working Memory (W)") +
+  ylab("Percentage of Trajectories") +
+  ggtitle("Predicted Recovery Trajectories") +
+  geom_text(aes(label=percent(Num/100, .1)),
+            position=position_stack(vjust=0.5)) +
+  theme_pander()
+```
+
+
+
+# Hippocampus Size
+
+First, we define a basline condition: No PTE (_I_ = 1) and $\gamma$ = 0.8.
+
+```{r}
+H1 <- a %>%
+  filter(I == 1 & gamma == 0.8 & Day > 49) %>%
+  select(MemoryEntropy) %>%
+  summarise(H=mean(MemoryEntropy)) %>%
+  as.double()
+```
+
+Then, we define a function that calculates memory entropy on the last _N_ days 
+of a timeseries.
+
+```{r}
+h_entropy <- function(timeseries, N = 10) {
+  L <- length(timeseries)
+  mean(timeseries[L-N:N])
+}
+```
+
+With this in place, we can now calculate the predicted decrease in hippocampus 
+size.
+
+```{r}
+hsize <- a %>%
+  filter(Day > 49) %>%
+  group_by(Run, I, PTES, NumAttributes, RuminationFrequency, W, gamma) %>%
+  dplyr::summarize(H = h_entropy(MemoryEntropy) - H1,
+            HippocampusDecrease = 100*(mean(MemoryEntropy)/H1 - 1),
+            MeanTraumatic = mean(Traumatic),
+            MeanSimilarity = mean(ChunkSimilarity))
+```
+
+## Visualizing Hippocampus Volume Decrease
+
+```{r}
+ggplot(filter(hsize, I!=1), aes(x=W, y=HippocampusDecrease, fill=W)) +
+  #geom_violin(col="white") +
+  geom_boxplot(col="grey") +
+  scale_fill_viridis(option="plasma", discrete = T, end=0.8) +
+  #geom_point(position="jitter") +
+  #stat_summary(fun.data = mean_se, geom="point", position = "dodge", col="red") +
+  #stat_summary(fun.data = mean_sdl, geom="errorbar",  width=0.5, position=position_dodge(.9)) +
+  facet_grid(I ~ gamma, labeller=label_both) +
+  #coord_polar("y", start=0) +
+  #scale_fill_brewer(palette="Blues") +
+  #scale_fill_brewer(palette="Blues") +
+  xlab("Working Memory Capacity") +
+  ylab("Percentage Decrease in Hippocampus Volume") +
+  #geom_text(aes(y = Val-Num/2, label=percent(Num/100))) +
+  theme_pander() +
+  theme(panel.background = element_rect(fill=NA, color="black")) +
+  annotate(geom="segment", x=-Inf, xend=Inf, y=0, yend=0)
+
+hsize <- hsize %>%
+  mutate(Condition=paste("W=", W, "; F=", RuminationFrequency))
+
+```
+
+For pretty labels, we define two new labeller functions:
+
+```{r}
+ptev_val <- function(val) {
+  paste("I =", val)
+}
+
+gamma_val <- function(val) {
+  #expression(paste(gamma, "=", val))
+  paste("gamma =", val)
+}
+
+gval <- as_labeller(gamma_val)
+
+ggplot(filter(hsize, I != 1),
+       aes(x= I, y = HippocampusDecrease, fill = I)) +
+  facet_grid(~ W, labeller = label_both) +
+  #scale_fill_brewer(palette="Dark2") +
+  scale_fill_viridis(option="plasma", discrete = T, end=0.8) +
+  stat_summary(fun.data = "mean_se", geom="bar", position = "dodge") +
+  stat_summary(fun.data = "mean_cl_boot", geom="errorbar",
+               position = "dodge", width=0.25) +
+  theme_pander() +
+  ggtitle("Effects of Trauma Intensity\non Hippocampal Volume") +
+  ylab("Percent Decrease in Hippocampus Volume") +
+  xlab("Intensity of Traumatic Event (I)") +
+  theme(legend.position = "bottom")
+
+ggplot(filter(hsize, I != 1),
+       aes(x= gamma, y = HippocampusDecrease, fill = gamma, col=gamma)) +
+  facet_grid(W ~ I, labeller = label_both) +
+  geom_violin(alpha=0.25, col="white") +
+  scale_fill_brewer(palette="Dark2") +
+  scale_color_brewer(palette="Dark2") +
+  stat_summary(fun.data = mean_se, geom="point", aes(col=gamma), size=3) +
+  stat_summary(fun.data = mean_sdl, geom="errorbar",
+               aes(col=gamma), width=0.05) +
+  #stat_summary(fun.data = "mean_se", geom="bar", position = "dodge") +
+  #stat_summary(fun.data = "mean_cl_boot", geom="errorbar",
+  #             position = "dodge", width=0.25) +
+  theme_pander() +
+  ggtitle("Effects of Trauma Intensity\non Hippocampal Volume") +
+  ylab("Percent Decrease in Hippocampus Volume") +
+  xlab("Intensity of Traumatic Event (I)") +
+  theme(legend.position = "bottom")
+
+ggplot(filter(hsize, I != 1),
+       aes(x=MeanTraumatic, y=HippocampusDecrease, col = gamma)) +
+  geom_point(alpha=.75, size=0.1) +
+  #geom_density_2d() +
+  facet_grid(W ~ I, labeller=label_both) +
+  #scale_color_brewer(palette="Paired") +
+  scale_color_viridis(option = "plasma", discrete = T, end = 0.8) +
+  stat_summary(fun.data = mean_se, geom="point", size=1) +
+  geom_smooth(method = "lm", formula = y ~ x, col="black", fullrange= T) + # theme_pander() +
+  #geom_smooth(method = "lm", aes(fill=Condition), se=F) +
+  ylab("Percentage Decrease in Hippocampus Volume") +
+  xlab("Probability of Traumatic Memory Intrusion (Day 50-60)") +
+  ggtitle("Symptom Severity And Hippocampal Volume Decrease") +
+  theme_pander() +
+#  theme(legend.position = "bottom") +
+  theme(panel.background=element_rect(fill="NA", colour="black"))
+
+ggplot(filter(hsize, I != 1),
+       aes(x=MeanTraumatic, y=HippocampusDecrease, col = W)) +
+  geom_point(alpha=.75, size=0.1) +
+  #geom_density_2d() +
+  facet_grid(I ~ gamma, labeller=label_both) +
+  #scale_color_brewer(palette="Paired") +
+  scale_color_viridis(option = "plasma", end = 0.8, discrete = T) +
+  stat_summary(fun.data = mean_se, geom="point", size=1) +
+  geom_smooth(method = "lm", formula = y ~ x, col="black", fullrange= T) + # theme_pander() +
+  #geom_smooth(method = "lm", aes(fill=Condition), se=F) +
+  ylab("Percentage Decrease in Hippocampus Volume") +
+  xlab("Probability of Traumatic Memory Intrusion (Day 50-60)") +
+  ggtitle("Symptom Severity\nAnd Hippocampal Volume Decrease") +
+  theme_pander() +
+  theme(legend.position = "bottom") +
+  theme(panel.background=element_rect(fill="NA", colour="black"))
+
+
+ggplot(filter(hsize, I != 1),
+       aes(x=MeanTraumatic, y=HippocampusDecrease, col = I)) +
+  geom_point(alpha = .1, size=1) +
+  #geom_density_2d() +
+  #scale_color_viridis(option="Dark2", discrete=T) +
+  scale_color_brewer(palette="Dark2") +
+  #stat_summary(fun.data = mean_se, geom="point", size=1) +
+  geom_smooth(method = "lm", formula = y ~ x, aes(col=I), fill="white",
+              fullrange= T) + # theme_pander() +
+  #geom_smooth(method = "lm", aes(fill=Condition), se=F) +
+  ylab("Percentage Decrease in Hippocampus Volume") +
+  xlab("Probability of Traumatic Memory Intrusion (Day 50-60)") +
+  ggtitle("Correlation Between Symptom Severity\nAnd Hippocampal Volume Decrease") +
+  theme_pander() +
+  theme(legend.position = "bottom") #+
+  #theme(panel.background=element_rect(fill="NA", colour="black"))
+
+
+ggplot(filter(hsize, I!=1 & PTES==0), aes(x=MeanSimilarity,
+                                             y=HippocampusDecrease,
+                                             col=W)) +
+  #geom_point(alpha=.5, size=0.2) +
+  geom_density_2d() +
+  facet_grid(I ~ gamma, labeller=label_both) +
+  scale_color_brewer(palette="Dark2") +
+  #geom_smooth(method = "lm", formula = y ~ x, col="black", fullrange= T) +  theme_pander() +
+  geom_smooth(method = "lm", aes(fill=W), se=F) +
+  ylab("Percentage Decrease in Hippocampus Volume") +
+  xlab("Probability of Traumatic Memory Intrusion (Day 50-60)") +
+  ggtitle("Symptom Severty Correlates With\nHippocampal Volume Decrease") +
+  theme_pander() +
+  theme(panel.background=element_rect(fill="NA", colour="black"))
+
+
+rcorrect <- function(x) {
+  if (is.na(x)) {
+    0
+  } else {
+    x
+  }
+}
+
+vrcorrect <- Vectorize(rcorrect)
+
+hsize_r <- hsize %>%
+  ungroup() %>%
+  filter(I != 1) %>%
+  group_by(I, PTES, NumAttributes, RuminationFrequency, W, gamma, Condition) %>%
+  dplyr::summarize(R = cor(MeanTraumatic, HippocampusDecrease))
+
+hsize_r <- hsize_r %>%
+  ungroup() %>%
+  mutate(R = vrcorrect(R))
+#         PTES=as.numeric(as.character(PTES)))
+
+ggplot(filter(hsize_r, I != 1), aes(x=PTES, y=R, col=Condition)) +
+  #geom_violin() +
+  #geom_point() +
+  geom_jitter(position=position_jitter(0.1)) +
+  facet_grid(I ~ gamma, labeller=label_both) +
+  #geom_smooth(method = "lm", aes(fill=Condition), se=F) +
+  scale_color_brewer(palette="Paired") +
+  ggtitle("Correlations Between Symptom Severty And \nHippocampal Volume Decrease") +
+  theme_pander() +
+  theme(panel.background=element_rect(fill="NA", colour="black"))
+
+
+
+trend <- a %>%
+  filter(I == 1) %>%
+  group_by(Day) %>%
+  dplyr::summarize(Baseline = mean(MemoryEntropy))
+
+a <- a %>%
+  mutate(HippocampusSize = MemoryEntropy - trend$Baseline)
+
+```
