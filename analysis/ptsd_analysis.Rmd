@@ -209,6 +209,13 @@ patterns <- a %>%
 patterns <- patterns %>% ungroup
 ```
 
+The stats given by Galatzer-Levy & Bonanno are:
+
+* Resilient, 0.65
+* Chronic, 0.12
+* Delayed, 0.10
+* Recovery, 0.23 
+
 We can now plot the percentages and the patterns by trajectory:
 
 ```{r}
@@ -220,11 +227,37 @@ plots <- z %>%
   dplyr::summarize(Traumatic=mean(Traumatic))
 
 
-props <- z %>%
-  filter(I %in% c(20, 40,60), gamma == 0.8) %>%
-  group_by(Trajectory) %>%
+props <- patterns %>%
+#  filter(I %in% c(20, 40, 60), 
+#         gamma==0.95, 
+#         RuminationFrequency==0,
+#         PTES==0) %>%
+  group_by(Trajectory, I, gamma, 
+           RuminationFrequency) %>%
   dplyr::summarize(N = length(Trajectory)) %>%
-  dplyr::mutate(Prop = N/sum(N))
+  dplyr::mutate(Prop = N/1200)
+
+observed <- c(0.65, 0.12, 0.1, 0.23)
+
+props %>%
+  pivot_wider(id_cols=c(I, gamma, RuminationFrequency), 
+              names_from = Trajectory,
+              values_from = N,
+              values_fill=0) -> test
+
+mychi <- function(a, b, c, d) {
+  chisq.test(c(a, b, c, d), 
+             p=observed, 
+             rescale.p=T)$statistic
+}
+
+test <- test %>%
+  mutate(chi=mychi(Resilient, 
+      Chronic, 
+      Delayed, 
+      Recovery))
+
+chisq.test(c(225, 178, 21, 776), p=c(0.5, 0.2, 0.2, 0.1), rescale.p = T)
 
 props %>%
   xtable() %>%
@@ -236,16 +269,17 @@ props %>%
 And here is a visual representation of the trajectories.
 
 ```{r}
-ggplot(filter(z, I != 1, gamma==0.8), 
+ggplot(filter(z, I != 1), 
        aes(x=Day, y=Traumatic, col=Trajectory, fill=Trajectory)) +
   stat_summary(fun.data = mean_se, geom="line") +
   #stat_summary(fun.data = mean_se, geom="point", alpha=0.25) +
   stat_summary(fun.data = mean_cl_normal, 
                geom="ribbon", alpha = 0.25, col=NA) +
   #scale_x_continuous(breaks=seq(-20, 60, 10)) +
-  coord_cartesian(ylim=c(0, 0.35)) +
+  coord_cartesian(ylim=c(0, 0.5)) +
   scale_color_jama() +
-  scale_fill_jama() +
+  geom_vline(data=props, aes(xintercept=-0.5)) +
+  scale_fill_aaas() +
   theme_pander()
 ```
 
