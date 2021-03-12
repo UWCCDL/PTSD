@@ -49,8 +49,12 @@ a <- a %>%
   rename(gamma = Gamma) %>%
   mutate(I = as_factor(I)) %>%
   mutate(gamma = as_factor(gamma)) %>%
-  mutate(W = as_factor(W))
+  mutate(W = as_factor(W)) %>%
+  mutate(A = as_factor(NumAttributes)) %>%
+  mutate(C = as_factor(PTES)) %>%
+  mutate(R = as_factor(RuminationFrequency))
 ```
+
 
 # Daily Memory Intrusions
 
@@ -203,87 +207,169 @@ classify <- function(days) {
 }
 
 patterns <- a %>%
-  group_by(Run, I, PTES, NumAttributes, RuminationFrequency, W, gamma) %>%
+  group_by(Run, I, C, A, R, W, gamma) %>%
   dplyr::summarize(Trajectory = classify(Traumatic))
 
 patterns <- patterns %>% ungroup
 ```
 
-The stats given by Galatzer-Levy & Bonanno are:
+Finally, let's assign each data point in the main averages with the corresponding trajectory, and re-order the trajectories in order of severity:
+
+```{r}
+a <- inner_join(a, patterns)
+a$Trajector <- factor(a$Trajectory,
+                      levels = c("Resilient", "Delayed", "Recovery", "Chronic"))
+```
+
+### Finding a baseline to compare the model to existing literature
+
+Since we have no idea how typical the model parameters are of the existing patients and their cases, we need to provide some sort of baselines. To do so, we will use the proportion of trajectories that weregiven by Galatzer-Levy and Bonanno in their meta-analysis. They are:
 
 * Resilient, 0.65
+* Recovery, 0.23 
 * Chronic, 0.12
 * Delayed, 0.10
-* Recovery, 0.23 
+
+
+Note that they do not normalize to one, due to the lack of some trajectories in some studies. To use them, we will need to make sure to normalized them first, which can be done at time of testing.
+
+```{r}
+T_observed <- c(0.65, 0.23, 0.12, 0.1)
+names(T_observed) <- c("Resilient", "Recovery", "Chronic", "Delayed")
+```
 
 We can now plot the percentages and the patterns by trajectory:
 
 ```{r}
-
-z <- inner_join(a, patterns)
-
-plots <- z %>%
-  group_by(Day, Trajectory) %>%
-  dplyr::summarize(Traumatic=mean(Traumatic))
-
-
 props <- patterns %>%
-#  filter(I %in% c(20, 40, 60), 
-#         gamma==0.95, 
-#         RuminationFrequency==0,
-#         PTES==0) %>%
-  group_by(Trajectory, I, gamma, 
-           RuminationFrequency) %>%
+  group_by(Trajectory, 
+           I, 
+           gamma, 
+           C, 
+           #W,
+           R,
+           #A,
+           ) %>%
   dplyr::summarize(N = length(Trajectory)) %>%
-  dplyr::mutate(Prop = N/1200)
-
-observed <- c(0.65, 0.12, 0.1, 0.23)
+  dplyr::mutate(Prop = N/50)
 
 props %>%
-  pivot_wider(id_cols=c(I, gamma, RuminationFrequency), 
+  pivot_wider(id_cols=c(I, 
+                        gamma, 
+                        C,
+                        #W,
+                        R,
+                        #A,
+                        ), 
               names_from = Trajectory,
               values_from = N,
               values_fill=0) -> test
 
-mychi <- function(a, b, c, d) {
-  chisq.test(c(a, b, c, d), 
-             p=observed, 
+mychi <- function(vals) {
+  chisq.test(vals, 
+             p=T_observed, 
              rescale.p=T)$statistic
 }
 
-test <- test %>%
-  mutate(chi=mychi(Resilient, 
-      Chronic, 
-      Delayed, 
-      Recovery))
+mycorr <- function(vals) {
+  cor(vals, T_observed)
+}
 
-chisq.test(c(225, 178, 21, 776), p=c(0.5, 0.2, 0.2, 0.1), rescale.p = T)
+myrmse <- function(vals) {
+  v <- 50 * (T_observed/sum(T_observed))
+  sqrt(mean((vals - v)^2))
+}
 
-props %>%
-  xtable() %>%
-  kable(digits = 3) %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+
+ltest <- test %>%
+  pivot_longer(cols=c("Resilient", "Recovery", "Chronic", "Delayed"),
+               names_to = "Trajectory",
+               values_to = "N")
+
+# Suppresses X-squared approximation warnings
+old.warn <- options()$warn
+options(warn = -1)
+
+atest <- ltest %>%
+  group_by(I, 
+           gamma, 
+           C, 
+           #W,
+           R,
+           #A,
+           ) %>%
+  summarize(Chi = mychi(N), r=mycorr(N), RMSE=myrmse(N))
+
+# resets warnings
+options(warn = old.warn)
+
+test <- inner_join(test, atest)
 ```
 
+Now, we can identfy the baseline as the condition with the minimum $\chi^2$-squared test (or the minimum RMSE, they are the same)
+
+This shows how correlation coefficient and $\chi^2$ are related, while the RMSE does not really capture either of them:
+
+```{r}
+ggplot(test, aes(x=Chi, y=r, col=RMSE)) + 
+  geom_point(size=4) + 
+  scale_color_viridis(option="plasma")+
+  ylab(expression(italic(r))) +
+  xlab(expression(chi^2)) +
+  ggtitle("Relationship between Error Measures in Trjectories") +
+  theme_pander()
+```
+
+
+```{r}
+baseline <- test %>%
+  filter(Chi == min(test$Chi))
+```
 
 And here is a visual representation of the trajectories.
 
 ```{r}
-ggplot(filter(z, I != 1), 
+baseline_a <- a %>%
+  filter(I == baseline$I,
+         #W == baseline$W,
+         C == baseline$C,
+         R == baseline$R,
+         gamma == baseline$gamma,
+         #A == baseline$A
+         )
+
+         
+ggplot(baseline_a, 
+       aes(x=Day, y=Traumatic, col=Trajectory, fill=Trajectory)) +
+  #stat_summary(fun.data = mean_se, geom="line") +
+  #stat_summary(fun.data = mean_se, 
+  #             geom="ribbon", alpha = 0.25, col=NA) +
+  geom_smooth(method="loess", span=0.15) +
+  #scale_x_continuous(breaks=seq(-20, 60, 10)) +
+  coord_cartesian(ylim=c(0, 0.5)) +
+  scale_color_jama() +
+  geom_vline(data=props, aes(xintercept=-0.5)) +
+  scale_fill_jama() +
+  theme_pander()
+```
+
+```{r}
+ggplot(filter(a, I != 1), 
        aes(x=Day, y=Traumatic, col=Trajectory, fill=Trajectory)) +
   stat_summary(fun.data = mean_se, geom="line") +
   #stat_summary(fun.data = mean_se, geom="point", alpha=0.25) +
   stat_summary(fun.data = mean_cl_normal, 
                geom="ribbon", alpha = 0.25, col=NA) +
+  #geom_smooth(method="loess", span=0.15) +
   #scale_x_continuous(breaks=seq(-20, 60, 10)) +
   coord_cartesian(ylim=c(0, 0.5)) +
   scale_color_jama() +
   geom_vline(data=props, aes(xintercept=-0.5)) +
-  scale_fill_aaas() +
+  scale_fill_jama() +
   theme_pander()
 ```
 
-Distributions of Patterns Across Factors 
+Distributions of Trajectories Across Factors 
 
 ```{r}
 pattern_count <- patterns %>%
