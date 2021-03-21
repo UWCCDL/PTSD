@@ -62,7 +62,7 @@ We begin by removing most of the days preceding the PTE:
 
 ```{r}
 d <- d %>% 
-  select(Run, Day, PTEV, Gamma, PTES, W, 
+  dplyr::select(Run, Day, PTEV, Gamma, PTES, W, 
          NumAttributes, RuminationFrequency, 
          MemoryEntropy, ChunkSimilarity, Traumatic) %>%
   filter(Day > -20)
