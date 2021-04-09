@@ -29,10 +29,94 @@ library(ggsci)
 library(ggrepel)
 library(kableExtra)
 library(xtable)
+library(gridExtra)
 library(RColorBrewer)
 ```
 
 This is an analysis of the PTSD model "complete" simulations ("Simulation 3").
+
+```{r}
+# Simulate ACT-R
+
+decay <- function(time, t0=0, rate=.5) {
+    if (time <= t0) {
+      NA
+    } else {
+      (time - t0)**(-rate)
+    }
+}
+
+vdecay <- Vectorize(decay)
+
+time <- seq(1, 100, 1)
+df <-data.frame(Time=time, 
+           trace1 = vdecay(time, t0=1),
+           trace2 = vdecay(time, t0=20),
+           trace3 = vdecay(time, t0=55),
+           trace4 = vdecay(time, t0=65))
+
+
+ldf <- df %>%
+  # mutate(Total = if_else(is.na(trace1), 0, trace1) +
+  #          if_else(is.na(trace2), 0, trace2) +
+  #          if_else(is.na(trace3), 0, trace3) +
+  #          if_else(is.na(trace4), 0, trace4))  %>%
+  pivot_longer(cols = c("trace1", "trace2", "trace3", "trace4"),
+               names_to = "Trace", values_to="Activation")
+
+ldf$Trace <- fct_recode(ldf$Trace, 
+                        "Trace 1" = "trace1",
+                        "Trace 2" = "trace2",
+                        "Trace 3" = "trace3",
+                        "Trace 4" = "trace4")
+
+
+ggplot(ldf, 
+       aes(x=Time, y=Activation, col=Trace)) +
+  geom_line(size=1,
+            alpha=1,
+            linetype="dashed") +
+  # stat_summary(geom="line", fun = sum, 
+  #              col="black", 
+  #              alpha=0.5,
+  #              position = position_dodge()) +
+  # #scale_y_log10() +
+  ylim(0, 1.6) +
+  ylab(expression(paste("Odds of Retrieving Memory ", italic(m))))+
+  scale_color_viridis(option="plasma", discrete=T, end = .8) +
+  theme_pander()
+```
+The distribution of Gamma events is this:
+
+* Frequency: 2.1, 175 (shape, scale)
+* Rumination, 6, 100
+
+```{r}
+t <- 0:(24*60)
+E <- dgamma(t, shape=2.1, rate=1/175)
+R <- dgamma(t, shape=6, rate=1/100)
+
+dists <- data.frame(Time=t, Events = E, Rumination = R) %>%
+  pivot_longer(names_to = "Type", 
+               values_to = "Probability",
+               cols=c("Events", "Rumination"))
+
+ggplot(dists, aes(x=Time, y=Probability, col=Type, fill=Type)) +
+  geom_line() +
+  geom_ribbon(data=dists, aes(x=Time, ymax=Probability, ymin=0), alpha=0.25) +
+  scale_x_continuous(breaks=60*c(0, 4, 8, 12, 16, 20),
+                     limits=c(0, 24*60),
+                     labels=c("8:00am", 
+                              "12:00pm",
+                              "4:00pm",
+                              "8:00pm",
+                              "12:00am",
+                              "4:00am")) +
+  scale_color_aaas() +
+  scale_fill_aaas() +
+  ggtitle("Probability of Retrievals During the Day") +
+  theme_pander()
+```
 
 # Load and Transform the Data
 
@@ -54,17 +138,21 @@ if (CREATE_AGGREGAGATED) {
   d <- d %>% 
     dplyr::select(Run, Day, PTEV, Gamma, PTES, W, 
                   NumAttributes, RuminationFrequency, 
-                  MemoryEntropy, ChunkSimilarity, Traumatic) %>%
+                  MemoryEntropy, ChunkSimilarity, Traumatic, ChunkV) %>%
     filter(Day > -20)
   
-  a2 <- d  %>%
+  a <- d  %>%
     group_by(Run, Day, PTEV, PTES, Gamma, 
              NumAttributes, RuminationFrequency, W) %>%
     summarise(MemoryEntropy = mean(MemoryEntropy),
               ChunkSimilarity = mean(ChunkSimilarity),
               PTraumatic = mean(Traumatic),
-              CTraumatic = sum(Traumatic))
+              CTraumatic = sum(Traumatic),
+              ChunkV = mean(ChunkV))
+  
+  write_csv(x=a, file = "../simulations/simulations3_aggregated2.csv")
 }
+
 a <- read_csv(gzfile("../simulations/simulations3_aggregated2.csv.gz"),
               col_types = cols())
 ```
@@ -201,6 +289,17 @@ At this point, we can visualize the mean aggregated timecourse of intrusions for
 ```{r}
 K = rev(brewer.pal(5, "Purples"))
 
+TOTAL <- 28800  # Param combos
+
+traj_total <- a %>%
+  filter(Day == 30) %>%
+  group_by(Trajectory) %>%
+  summarize(N = length(CTraumatic),
+            Prop = length(CTraumatic)/TOTAL,
+            MeanC = mean(CTraumatic))
+
+
+
 ggplot(filter(a, I != 1), 
        aes(x=Day, y=CTraumatic, col=Trajectory, fill=Trajectory)) +
   ggtitle("Probability of Memory Intrusion by Trajectory") +
@@ -217,6 +316,10 @@ ggplot(filter(a, I != 1),
   annotate("text", x= -5, y=15, label="Base")+
   annotate("text", x= 5, y=15, label="Acute")+
   annotate("text", x= 55, y=15, label="Chronic")+
+  
+  geom_text(data=traj_total, aes(x= 30, y = MeanC, 
+                                 label=percent(Prop, accuracy = 0.1)),
+            vjust=-.5, show.legend=F) +
   
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_cl_normal, 
@@ -353,18 +456,28 @@ baseline_a <- a %>%
          C == baseline$C,
          R == baseline$R,
          gamma == baseline$gamma,
-         #A == baseline$A
          )
+
+base_total <- baseline_a %>%
+  filter(Day == 15) %>%
+  group_by(Trajectory) %>%
+  summarize(N = length(CTraumatic),
+            Prop = length(CTraumatic)/100,
+            MeanC = mean(CTraumatic))
+
          
 ggplot(baseline_a, 
-       aes(x=Day, y=PTraumatic, col=Trajectory, fill=Trajectory)) +
+       aes(x=Day, y=CTraumatic, col=Trajectory, fill=Trajectory)) +
   geom_smooth(method="loess", span=0.2) +
-  coord_cartesian(ylim=c(0, 0.2)) +
-  ggtitle("Baseline Condition") +
+  ggtitle("Trajectories for Best-Fitting Parameters") +
   scale_color_jama() +
+  geom_text(data=base_total, aes(x= c(25, 10, 20, 10), y = MeanC, 
+                                 label=percent(Prop, accuracy = 0.1)),
+            vjust=-.5, show.legend=F) +
+  ylab("Total Number of Memory Intrusions") +
   geom_vline(data=props, aes(xintercept=-0.25)) +
   scale_fill_jama() +
-  theme_pander()
+  theme_pander() 
 ```
 
 The Chonic and Delayed trajectories, being the least common, exhibit significant ups and downs, hence the need for Loess smoothing. Nonetheless, the trajectories remain visible and clearly identifiable.
@@ -459,7 +572,8 @@ ggplot(IC_a,
   stat_summary(fun.data = mean_cl_normal, 
                geom="ribbon", alpha = 0.25, col=NA) +
   
-  facet_wrap(~C, label=label_both) +
+  facet_wrap(~C, labeller = label_bquote(italic(C) == .(C))) + #label=label_both) +
+  labs(col="PTE Intensity", fill="PTE Intensity", facet="Z") +
   #coord_cartesian(ylim=c(0, 0.5)) +
   ggtitle("Effects of PTE Intensity") +
   scale_color_viridis(discrete=T, option="plasma", end=0.8) +
@@ -468,7 +582,7 @@ ggplot(IC_a,
   theme_pander()
 ```
 
-The effects of _I_ and _C_ on the priobabilities of recall during the Chronic period can be understood with a linear model analysis
+The effects of _I_ and _C_ on the probabilities of recall during the Chronic period can be understood with a linear model analysis
 
 ```{r}
 IC_mod <- glm(CTraumatic ~ I * C, family="poisson", IC_traumatic)
@@ -483,16 +597,21 @@ summary(IC_mod) %>%
 And here are the changes in trajectories.
 
 ```{r fig.height=7, fig.width=7}
+
+
 ggplot(data=IC_trajectories, aes(x="", y=N/100, fill=Trajectory)) +
   geom_bar(stat = "identity", col="grey", width=1) +
-  facet_wrap(~I*C, labeller = label_both) +
+  #facet_grid(C~I, labeller = label_both) +
+  facet_grid(C~I, labeller = label_bquote(
+    rows = italic(C) == .(C),
+    cols = italic(I)[PTE] == .(I))) +
   coord_polar("y", start=0) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 2L)) +
   scale_fill_jama() +
   scale_color_jama() +
   ylab("PTE Intensity") +
-  xlab("") +
-  ggtitle("Effect of PTE Intensity on Trajectories") +
+  xlab("Contextual Similarity") +
+  ggtitle("Effect of External Factors on Trajectories") +
   geom_text_repel(aes(label=percent(N/100, .1)), col="white",
             position=position_stack(vjust=0.5 ), size=3)+
   theme_pander()
@@ -640,14 +759,17 @@ And here are the changes in trajectories.
 ```{r, fig.height=7, fig.width=7}
 ggplot(data=Wg_test, aes(x="", y=N/100, fill=Trajectory)) +
   geom_bar(stat = "identity", col="white", width=1, alpha=1) +
-  facet_wrap(~ W*gamma, labeller = label_both) +
+  facet_grid(gamma~W, 
+             labeller  = label_bquote(
+    rows = gamma == .(gamma),
+    cols = italic(W) == .(W))) +
   coord_polar("y", start=0) +
   #scale_fill_d3() +
   scale_y_continuous(labels = scales::percent_format(accuracy = 2L)) +
   scale_fill_jama() +
-  ylab("Contextual Similarity") +
-  xlab("") +
-  ggtitle("Effect of PTE Intensity on Trajectories") +
+  xlab("Recollection Vividness") +
+  ylab("Cognitive Control") +
+  ggtitle("Effect of Idiographic Factors on Trajectories") +
   geom_text_repel(aes(label=percent(N/100, .1)),
             position=position_stack(vjust=0.5), size=3, col="white") +
   #geom_text_repel() +
@@ -762,9 +884,8 @@ ggplot(R_a,
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_cl_normal, 
                geom="ribbon", alpha = 0.25, col=NA) +
-  
   #geom_smooth(method="loess", span=0.2) +
-  facet_wrap(~R) +
+  #facet_wrap(~R) +
   #coord_cartesian(ylim=c(0, 0.75)) +
   ggtitle("Effects of Rumination") +
   scale_color_viridis(discrete=T, option="plasma", end=0.8) +
@@ -773,7 +894,7 @@ ggplot(R_a,
   theme_pander()
 ```
 
-It is striking to notice that, within baseline levels of _I_ and _C_, the effects of working memory are incredibly large. This is likely due to the fact that the parameters were not properly calibrated.
+The effects of Rumination are huge. This is likely due to the fact that the parameters were not properly calibrated.
 
 And here is the corresponding analysis. Like before, the main factors _W_ and $\gamma$ are significant. However, this time, their interaction is not, suggesting that their effects are additive.
 
@@ -907,9 +1028,10 @@ ggplot(hsize_trajectory, aes(x=Trajectory, y = HippocampusDecrease,
   facet_wrap(~I, ncol=2, labeller = label_both) +
   scale_fill_jama() +
   scale_color_jama() +
-  stat_summary(geom="point", fun.data="mean_sdl") +
-  stat_summary(geom="errorbar", fun.data="mean_sdl", width=.25, 
-               fun.args = list(mult=1)) +
+  #stat_summary(geom="point", fun.data="mean_sdl") +
+  #stat_summary(geom="errorbar", fun.data="mean_sdl", width=.25, 
+  #             fun.args = list(mult=1)) +
+  geom_boxplot(width=.25, fill=NA) +
   geom_violin(alpha=0.4, col="NA") +
   theme_pander() +
   theme(panel.background=element_rect(fill="NA", colour="black"))
