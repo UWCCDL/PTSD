@@ -7,7 +7,7 @@ library(ggthemes)
 library(viridis)
 #library(hrbrthemes)
 
-a <- read_csv(gzfile("simulation3_aggregated.csv.gz"),
+a <- read_csv(gzfile("../simulations/simulation3_aggregated.csv.gz"),
               col_types = cols())
 
 a <- a %>%
@@ -259,6 +259,8 @@ ggplot(filter(hsize, I != 1),
   theme(panel.background=element_rect(fill="NA", colour="black"))
 
 
+## Figure 4
+##
 ggplot(filter(hsize, I != 1),
        aes(x=MeanTraumatic, y=HippocampusDecrease, col = I)) +
   geom_point(alpha = .1, size=1) +

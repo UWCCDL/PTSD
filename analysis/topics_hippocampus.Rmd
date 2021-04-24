@@ -1,0 +1,302 @@
+---
+title: "TopiCS_Hippocampus"
+author: "Andrea Stocco and Briana M. Smith"
+date: "4/23/2021"
+output:
+  html_document:
+    code_folding: hide
+    theme: yeti
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  word_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(scales)
+library(ggthemes)
+library(viridis)
+library(xtable)
+library(kableExtra)
+```
+
+# TopiCS Paper
+
+In this document, we analyze the results of Simulation 3 to investigate how a traaumatic event affects hippocampus size. 
+
+## Load the data
+
+First, we need to load the data and rename the variables.
+
+```{r}
+a <- read_csv(gzfile("../simulations/simulation3_aggregated.csv.gz"),
+              col_types = cols())
+
+a <- a %>%
+  rename(I = PTEV) %>%
+  rename(gamma = Gamma) %>%
+  mutate(I = as_factor(I)) %>%
+  mutate(gamma = as_factor(gamma)) %>%
+  mutate(W = as_factor(W))
+
+```
+
+## Effects of Traumatic Intensity on Intrusive Memories 
+
+For the purpose of this paper, there are two aspects to concentrate on. First, as expected the model does indeed show worse clinical outcomes in response to more traumatic events. Figure 2, below, shows the daily incidence of traumatic memories. 
+
+```{r fig.width=6, fig.height=5}
+ggplot(filter(a, I != 1), aes(x=Day, y=Traumatic, col=I)) +
+  scale_color_brewer(palette="Dark2") +
+  stat_summary(fun.data = mean_se, geom="line") +
+  stat_summary(fun.data = mean_se, geom="point", alpha=0.25) +
+  stat_summary(fun.data = mean_cl_boot, geom="errorbar", alpha = 0.5) +
+  ylab("Relative Frequency of Traumatic Memory Intrusion") +
+  xlab("Day") +
+  ggtitle("Frequency of Memory Intrusions\nFollowing a Traumatic Event") +
+  annotate("segment", x=-0.5, xend=-0.5,
+           y=-Inf, yend=Inf, col="black", lty=2, size=1) +
+  annotate("rect", xmin=50, xmax=60,
+           ymin=-Inf, ymax=Inf, fill="red", alpha=0.2)+
+  theme_pander() +
+  theme(legend.position = "bottom") #+
+
+ggsave("figure2.png")
+```
+
+A 3 x 60 analysis of variance (ANOVA), using emotional intensity _I_ and the days after PTE as factors, revealed that _I_ had a significant effect on the relative frequency of experiencing traumatic memories in the days following a traumatic event, with higher values of I corresponding to higher relative frequency of memory intrusions. Furthermore, _I_ interacted significantly with the day  resulting in different recovery trajectories.
+
+```{r}
+aov_data <- filter(a, Day > 0, I != 1)
+aov_data$Day <- as_factor(aov_data$Day)
+
+summary(aov(Traumatic ~ Day * I, aov_data)) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+## Hippocampus Volume
+
+Having established that the model succeeds in capturing these signatures of PTSD, the results were further examined to estimate the effects of traumatic stress on hippocampal volume. 
+
+First, we define functions and and baseline to measure hippocampal volume.
+
+```{r}
+h_entropy <- function(timeseries, N = 10) {
+  L <- length(timeseries)
+  mean(timeseries[L-N:N])
+}
+
+H1 <- a %>%
+  filter(I == 1 & gamma == 0.8 & Day > 49) %>%
+  select(MemoryEntropy) %>%
+  summarise(H=mean(MemoryEntropy)) %>%
+  as.double()
+
+hsize <- a %>%
+  filter(Day > 49) %>%
+  group_by(Run, I, PTES, NumAttributes, RuminationFrequency, W, gamma) %>%
+  summarize(H = h_entropy(MemoryEntropy) - H1,
+            HippocampusDecrease = 100*(mean(MemoryEntropy)/H1 - 1),
+            MeanTraumatic = mean(Traumatic),
+            MeanSimilarity = mean(ChunkSimilarity))
+```
+
+
+### Reduction of Hippocampal Volume
+
+It was observed, across all parameters, that there was general reduction of simulated hippocampal volume, ranging from zero to 33.89% with a mean  decrease of 7.35%. Both the mean decrease and the range of variation match the results of existing meta-analyses. For example, in  Smith’s (2005) review of structural MRI studies, the decrease in hippocampal volume ranged between  0 and 44% with a mean of  6.9%.
+
+A second question was whether the severity of the reduction was predicted by the severity of trauma. To this end, the model simulation results suggest that the emotional intensity _I_ was a significant predictor of hippocampal volume reduction, with the decrease in hippocampal volume growing with greater values of I. This is shown in Figure 3, which shows the distributions of predicted decreases of hippocampal volumes in the simulations, visualized (as violin plots) separately for different values of intensity I. 
+
+```{r, fig.width=6, fig.height=5}
+ggplot(filter(hsize, I != 1),
+       aes(x= I, y = HippocampusDecrease, fill = I, col=I)) +
+  geom_violin(alpha=0.25, col="white") +
+  scale_fill_brewer(palette="Dark2") +
+  scale_color_brewer(palette="Dark2") +
+  stat_summary(fun.data = mean_se, geom="point", size=3) +
+  stat_summary(fun.data = mean_sdl, geom="errorbar",
+               aes(col=I), width=0.05) +
+  theme_pander() +
+  ggtitle("Effects of Trauma Intensity on Hippocampal Volume") +
+  ylab("Percent Decrease in Hippocampus Volume") +
+  xlab("Intensity of Traumatic Event (I)") +
+  theme(legend.position = "bottom")
+
+ggsave("figure3.png")
+```
+
+#### Statistical Analysis
+
+And here is the corresponding ANOVA:
+
+```{r}
+summary(aov(HippocampusDecrease ~ I, filter(hsize, I != 1))) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+### Correlation with Symptoms
+
+Then, we investigated was whether or not the degree of hippocampal volume was correlated to the degree of symptom severity. This is important because, although symptom severity is clearly driven by the severity of the traumatic event, it also depends on other factors that were explicitly manipulated in the simulations. To do so, the mean daily relative frequency of memory intrusions in the last 10 days of the simulations (red shaded area in Figure 2) and the corresponding percentage decrease in hippocampal volume were calculated for each run of the model. 
+
+```{r fig.width=6, fig.height=5}
+ggplot(filter(hsize, I != 1),
+       aes(x=MeanTraumatic, y=HippocampusDecrease, col = I)) +
+  geom_point(alpha = .1, size=1) +
+  scale_color_brewer(palette="Dark2") +
+  geom_smooth(method = "lm", formula = y ~ x, aes(col=I), fill="white",
+              fullrange= T) + # theme_pander() +
+  ylab("Percentage Decrease in Hippocampus Volume") +
+  xlab("Relative Frequency of Traumatic Memory Intrusion (Day 50-60)") +
+  ggtitle("Correlation Between Symptom Severity\nAnd Hippocampal Volume Decrease") +
+  theme_pander() +
+  theme(legend.position = "bottom") #+
+
+ggsave("figure4.png")
+```
+
+#### Statistical Analysis
+
+Three separate linear regressions, one for each level of _I_ = 20, 40, and 60, were then computed. In all cases, a significant linear effect was found.
+
+```{r}
+I20 <- filter(hsize, I == 20)
+I40 <- filter(hsize, I == 40)
+I60 <- filter(hsize, I == 60)
+```
+
+For _I_ = 20, the linear regression is:
+
+```{r}
+glmI20 <- lm(HippocampusDecrease ~ MeanTraumatic, I20)
+summary(glmI20) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+For _I_ = 40, it is:
+
+```{r}
+glmI40 <- lm(HippocampusDecrease ~ MeanTraumatic, I40)
+summary(glmI40) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+And for _I_ = 60, the regression is:
+
+```{r}
+glmI60 <- lm(HippocampusDecrease ~ MeanTraumatic, I60)
+summary(glmI60) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+### Decreased Hippocampal Volume as a Predisposition for PTSD
+
+Because studies relating PTSD and hippocampal volume are correlational in nature, it is not possible to exclude the possibility that a smaller hippocampal volume might represent a risk factor for PTSD. This is, in fact, one of the most debated topics in the field, and some evidence in this sense can be found in the literature. In one of the most remarkable studies, Gilbertson et al (2002) examined pairs of twins in which one of the siblings suffered PTSD after being exposed to combat, and found that the volume of the hippocampus in the non-exposed twin predicted the severity of the PTSD symptoms in the exposed one.
+
+Although our model predicts that a decrease in hippocampal volume is a consequence of PTSD symptoms, it does allow for a potential way in which an initially smaller hippocampus could lead to worse clinical outcomes, thus explaining these results. In essence, our model predicts that the same set of conditions that would allow a traumatic event to dominate over all other memories could also lead to other uneven distribution of memory activations before any traumatic event. In other words, a smaller hippocampal volume could not be a risk factor per se, but evidence of the presence of other conditions (in this case, specific values of model parameters) that represent significant risk factors.       
+
+To examine this hypothesis, we conducted a new analysis of our simulations. In this analysis, as in the previous analysis, the hippocampal volume was measured as a percentage of the volume difference from a baseline condition in which no traumatic event occurs (I = 1). Unlike the previous analysis, however, the hippocampal volume was estimated from the average entropy in the ten days preceding the traumatic event (Days -11 to -1 in Figure 2). The percentage in volume difference from the baseline was then correlated with the mean severity of symptoms experienced by the model after the traumatic event, which was measured, like in the previous analysis, on Days 50-60. 
+
+To avoid any spurious effect in our analysis, two precautions were taken. First, the simulations in which the model was spontaneously ruminating over previous memories (_R_ = 20) before any traumatic event were excluded, since this condition would artificially warp the distribution of memory entropy and, thus, the predicted hippocampal volume. As a second precaution, the results of this simulation were analyzed separately for the different values of the  working memory parameter _W_ (i.e., _W_ = 4, 8, 12, Table 1). This was done to prevent Simpson’s amalgamation paradox (Wagner, 1982) in examining our data, since higher values of working memory are likely to increase entropy (and thus, predicted hippocampal volume) before a PTE, but to decrease entropy and PTSD symptoms after it.
+
+
+```{r}
+
+HPre <- a %>%
+  filter(I == 1 & gamma == 0.8 & Day < 0) %>%
+  select(MemoryEntropy) %>%
+  summarise(H=mean(MemoryEntropy)) %>%
+  as.double()
+
+hsizeA <- a %>%
+  filter(Day > 49, RuminationFrequency == 0) %>%
+  group_by(Run, I, PTES, NumAttributes, RuminationFrequency, W, gamma) %>%
+  summarize(MeanTraumatic = mean(Traumatic),
+            MeanSimilarity = mean(ChunkSimilarity))
+
+hsizeB <- a %>%
+  filter(Day < 0, RuminationFrequency == 0) %>%
+  group_by(Run, I, PTES, NumAttributes, RuminationFrequency, W, gamma) %>%
+  summarize(H = h_entropy(MemoryEntropy) - HPre,
+            HippocampusDecrease = 100*(mean(MemoryEntropy)/HPre - 1))
+
+hsizePre <- inner_join(hsizeA, hsizeB)
+```
+
+And here are the correlations between the two measures across different levels of _W_:
+
+```{r fig.width=6, fig.height=5}
+ggplot(filter(hsizePre, I != 1),
+       aes(y=MeanTraumatic, x=HippocampusDecrease, col = I)) +
+  facet_wrap(~ W, scales="free_x", labeller = label_both) +
+  geom_point(alpha = .1, size=1) +
+  scale_color_brewer(palette="Dark2") +
+  geom_smooth(method = "lm", formula = y ~ x, aes(col=I), fill="white",
+              fullrange= T) + # theme_pander() +
+  xlab("Percentage Difference in Hippocampus Volume Before PTE") +
+  ylab("Relative Frequency of Traumatic Memory Intrusion (Day 50-60)") +
+  ggtitle("Correlation Between Initial Hippocampal Volume \nand Symptom Severity After PTE") +
+  theme_pander() +
+  theme(legend.position = "bottom") #+
+
+ggsave("figure5.png")
+```
+
+And now, some linear regression analysis to show that, for every value of _W_, we have a significant negative effect.
+
+```{r}
+W4 <- filter(hsizePre, W==4 & I != 1)
+W8 <- filter(hsizePre, W==8  & I != 1)
+W12 <- filter(hsizePre, W==12  & I != 1)
+```
+
+#### Statistical Analysis
+
+For _W_ = 4, the linear regression is:
+
+```{r}
+glmW4 <- lm(MeanTraumatic ~ HippocampusDecrease, W4)
+summary(glmW4) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+For _W_ = 8, the regression is:
+
+```{r}
+glmW8 <- lm(MeanTraumatic ~ HippocampusDecrease, W8)
+summary(glmW8) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+And for _W_ = 12, the regression is:
+
+```{r}
+glmW12 <- lm(MeanTraumatic ~ HippocampusDecrease, W12)
+summary(glmW12) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```

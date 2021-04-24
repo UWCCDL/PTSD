@@ -930,7 +930,7 @@ ggplot(data=R_test, aes(x="", y=N/100, fill=Trajectory)) +
 
 # Neurobiology of PTSD
 
-Finally, we will examine how the model captures some known effects of the neurobiology of PTSD.
+Finally, we will examine how the model captures some known effects of the neurobiology of PTSD and, in particular, the size of the hippocampus.
 
 ## Hippocampus Size
 
