@@ -21,9 +21,9 @@ a <- a %>%
 ggplot(filter(a, I != 1), aes(x=Day, y=Traumatic, col=I)) +
   #geom_point(alpha=.05, size=0.1) +
   #geom_density_2d() +
-  scale_color_jco() +
-  facet_grid(~ W, labeller=label_both) +
-  #scale_color_brewer(palette="Dark2") +
+  #scale_color_jco() +
+  #facet_grid(~ W, labeller=label_both) +
+  scale_color_brewer(palette="Dark2") +
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_se, geom="point", alpha=0.25) +
   stat_summary(fun.data = mean_cl_boot, geom="errorbar", alpha = 0.5) +
@@ -169,7 +169,7 @@ ggplot(filter(hsize, I!=1), aes(x=W, y=HippocampusDecrease, fill=RuminationFrequ
   #geom_point(position="jitter") +
   #stat_summary(fun.data = mean_se, geom="point", position = "dodge", col="red") +
   #stat_summary(fun.data = mean_sdl, geom="errorbar",  width=0.5, position=position_dodge(.9)) +
-  facet_grid(I ~ Gamma, labeller=label_both) +
+  #facet_grid(I ~ Gamma, labeller=label_both) +
   #coord_polar("y", start=0) +
   #scale_fill_brewer(palette="Blues") +
   #scale_fill_brewer(palette="Blues") +
@@ -208,8 +208,8 @@ ggplot(filter(hsize, I != 1),
   theme(legend.position = "bottom")
 
 ggplot(filter(hsize, I != 1),
-       aes(x= gamma, y = HippocampusDecrease, fill = gamma, col=gamma)) +
-  facet_grid(W ~ I, labeller = label_both) +
+       aes(x= I, y = HippocampusDecrease, fill = I, col=gamma)) +
+  #facet_grid(W ~ I, labeller = label_both) +
   geom_violin(alpha=0.25, col="white") +
   scale_fill_brewer(palette="Dark2") +
   scale_color_brewer(palette="Dark2") +
