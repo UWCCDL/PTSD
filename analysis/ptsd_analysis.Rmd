@@ -592,7 +592,7 @@ IC_traumatic <- traumatic %>%
 First, let's look at the time course of intrusions: 
 
 
-```{r}
+```{r, fig.width=5, fig.height=4}
 ggplot(IC_a, 
        aes(x=Day, y=CTraumatic, col=as.factor(I), fill=as.factor(I))) +
   #geom_smooth(method="loess", span=0.2) +
@@ -606,6 +606,8 @@ ggplot(IC_a,
        facet="Z") +
   #coord_cartesian(ylim=c(0, 0.5)) +
   ggtitle("Effects of PTE Intensity") +
+  ylab("Number of Traumatic Memory Intrusions") +
+  
   scale_color_viridis(discrete=T, option="plasma", end=0.8) +
   scale_fill_viridis(option = "plasma", discrete = T, end=0.8) +
   geom_vline(data=props, aes(xintercept=-0.15)) +
@@ -757,7 +759,7 @@ Wg_traumatic <- traumatic %>%
 
 Here we visualize the change in timecourses.
 
-```{r}
+```{r, fig.width=6, fig.height=3}
 Wg_a$gamma <- as_factor(Wg_a$gamma)
 ggplot(Wg_a, 
        aes(x=Day, y=CTraumatic, col=gamma, fill=gamma)) +
@@ -767,18 +769,19 @@ ggplot(Wg_a,
                geom="ribbon", alpha = 0.25, col=NA) +
   
   #geom_smooth(method="loess", span=0.2) +
-  facet_wrap(~W, ncol=2,
+  facet_wrap(~W, ncol=3,
              labeller  = label_bquote(
                rows = italic(W) == .(W))) +
-  ylab("Number of Traumatic Memory Intrusions") +
+  geom_vline(data=props, aes(xintercept=-0.15)) +
+  ylab("Number of\nTraumatic Memory Intrusions") +
   #coord_cartesian(ylim=c(0, 0.75)) +
   ggtitle("Effects of Idiographic Parameters") +
-  scale_color_viridis(expression(gamma), discrete=T, 
+  scale_color_viridis(expression(paste(gamma, " =")), discrete=T, 
                       option="plasma", begin = 0, end=0.9) +
-  geom_vline(data=props, aes(xintercept=-0.15)) +
-  scale_fill_viridis(expression(gamma), option = "plasma", 
+  scale_fill_viridis(expression(paste(gamma, " =")), option = "plasma", 
                      discrete = T, begin = 0, end=0.9) +
-  theme_pander()
+  theme_pander() +
+  theme(legend.position = "bottom")
 ```
 
 It is striking to notice that, within baseline levels of _I_ and _C_, the effects of working memory are incredibly large. This is likely due to the fact that the parameters were not properly calibrated.
@@ -857,8 +860,8 @@ The, we on the Recovery trajectory.
 
 
 ```{r}
-mylogit <- glm(Recovery ~ (W + gamma), family="binomial", 
-               data=filter(Wg_patterns, W<12))
+mylogit <- glm(Recovery ~ (W * gamma), family="binomial", 
+               data=filter(Wg_patterns, W<13))
 summary(mylogit) %>%
   xtable() %>%
   kable() %>%
@@ -868,7 +871,9 @@ summary(mylogit) %>%
 The _Delayed_ trajectory:
 
 ```{r}
-mylogit <- glm(Delayed ~ (W * gamma), family=binomial("logit"), data=Wg_patterns )
+mylogit <- bigglm(Delayed ~ (W * gamma), 
+                 family=binomial("logit"), 
+                 data=filter(Wg_patterns, W < 13) )
 summary(mylogit) %>%
   xtable() %>%
   kable() %>%
@@ -923,20 +928,24 @@ R_traumatic <- traumatic %>%
 
 Here we visualize the change in timecourses.
 
-```{r}
+```{r, fig.width = 3, fig.height=3}
 ggplot(R_a, 
        aes(x=Day, y=CTraumatic, col=as.factor(R), fill=as.factor(R))) +
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_cl_normal, 
                geom="ribbon", alpha = 0.25, col=NA) +
+  geom_vline(data=props, aes(xintercept=-0.15)) +
+
   #geom_smooth(method="loess", span=0.2) +
   #facet_wrap(~R) +
   #coord_cartesian(ylim=c(0, 0.75)) +
+  ylab("Number of\nTraumatic Memory Intrusions") +
+  #coord_cartesian(ylim=c(0, 0.75)) +
   ggtitle("Effects of Rumination") +
-  scale_color_viridis(discrete=T, option="plasma", end=0.8) +
-  geom_vline(data=props, aes(xintercept=-0.15)) +
-  scale_fill_viridis(option = "plasma", discrete = T, end=0.8) +
-  theme_pander()
+  scale_color_viridis(expression(paste(italic(R), " =")), discrete=T, option="plasma", end=0.8) +
+  scale_fill_viridis(expression(paste(italic(R), " =")), option = "plasma", discrete = T, end=0.8) +
+  theme_pander() +
+  theme(legend.position = "bottom")
 ```
 
 The effects of Rumination are huge. This is likely due to the fact that the parameters were not properly calibrated.
