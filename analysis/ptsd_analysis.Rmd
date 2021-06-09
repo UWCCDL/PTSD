@@ -39,6 +39,55 @@ library(RColorBrewer)
 
 This is an analysis of the PTSD model "complete" simulations ("Simulation 3").
 
+## Trajectories to simulate
+
+One of the goals of the model is to simulate therecovery trkjaectories in PTSD. The classic distinction is between four different trajectories, Resilient, Recovery, Chronic, and Delayed. These trajectories can be stylized as such
+
+```{r fig.width=6, fig.height=4}
+time <- -20:60
+
+resilient <- rep(0, length(time))
+chronic <- tanh(time/2)
+delayed <- time**2 / max(time**2)
+#recovery <- chronic - delayed
+recovery <- chronic + ((60 - time)**2 / max(time**2)-1)
+#recovery <- recovery/max(recovery)
+
+resilient[time <= 0] <- 0
+chronic[time <= 0] <- 0
+delayed[time <= 0] <- 0
+recovery[time <= 0] <- 0
+
+wideal <- tibble(Day = time, 
+                Chronic = chronic,
+                Delayed = delayed,
+                Recovery = recovery,
+                Resilient = resilient)
+        
+ideal <- wideal %>%
+  pivot_longer(cols=c("Chronic", "Delayed", "Resilient", "Recovery"),
+               values_to = "CTraumatic",
+               names_to = "Trajectory")
+
+ideal$Trajectory <- factor(ideal$Trajectory,
+                           levels = c("Recovery", "Delayed", "Resilient",  "Chronic"))
+
+ggplot(ideal, 
+       aes(x=Day, y=CTraumatic, col=Trajectory, fill=Trajectory)) +
+  #geom_smooth(method="loess", span=0.2) +
+  geom_line(size=2, alpha=0.75) +
+  ggtitle("Theoretical Recovery Trajectories") +
+  scale_color_d3() +
+  ylab("Number of Memory Intrusions") +
+  geom_vline(data=props, aes(xintercept=-0.35)) +
+  scale_fill_d3() +
+  theme_pander()  +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+```
+
 ## Underlying memory model
 
 The underlying memory model is John Anderson's ACT-R. 
