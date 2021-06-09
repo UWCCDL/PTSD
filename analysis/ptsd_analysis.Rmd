@@ -670,6 +670,8 @@ In the case of the Resilient and Recovery trajectories, both intensity _I_, Cont
 
 Furthermore, for the Resilient trajectories, the coefficients are negative, implying that the proportion of Recovery and Resilient trajectories decreases as the intensity and the context similarity increase.
 
+#### Resilient Trajectory
+
 ```{r}
 mylogit <- glm(Resilient ~ (I*C), family="binomial", data=IC_patterns)
 summary(mylogit) %>%
@@ -678,8 +680,7 @@ summary(mylogit) %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
 ```
 
-
-
+#### Recovery Trajectory
 
 For Recovery trajectories, however, the coefficients are significantly positive, implying that the number of cases increase with the severity of intensity and similarity. This is likely due to a greater number of resilient models developing intrusive memories following PTE under greater contextual similarity.
 
@@ -691,6 +692,8 @@ summary(mylogit) %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
 ```
 
+#### Chronic Trajector
+
 In the case of Chronic and Delayed trajectories, however, the pattern is different. In these cases, both the main factors and their interaction are significant. Furthermore, in both cases, the main factors have positive coefficients but their interaction is negative. This suggests that the effects of one factor decrease the size of the other factor increases. 
 
 ```{r}
@@ -700,6 +703,8 @@ summary(mylogit) %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
 ```
+
+#### Delayed Trajectory 
 
 ```{r}
 mylogit <- glm(Delayed ~ (I*C), family="binomial", data=IC_patterns)
@@ -838,6 +843,8 @@ The MANOVA shows that both factors and their interactions are significant. We ca
 
 First, we can examine the effects on the _Resilient_ trajectory. Because of the massive amount of positive cases when _W_ = 12, we are going to use the `bigglm` function, which handles cases better.
 
+#### Resilient Trajectory 
+
 ```{r}
 mylogit <- bigglm(Resilient ~ W * gamma, 
                   family = binomial("logit"),
@@ -845,6 +852,8 @@ mylogit <- bigglm(Resilient ~ W * gamma,
 summary(mylogit) 
 ```
 Surprisingly, there is no significant effect of either parameter on the Resilient trajectory. This is likely due to the massive amount of variance, with the Resilient Trajectory going from being almost absent when _W_ = 4 to being the only possible  trajectory when _W_ = 12.
+
+#### Chronic Trajectory
 
 We can then examine the _Chronic_ trajectory:
 
@@ -857,11 +866,12 @@ summary(mylogit) %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
 ```
 
-The, we on the Recovery trajectory.
+#### Recovery Trajectory
 
+Then, we on the Recovery trajectory.
 
 ```{r}
-mylogit <- glm(Recovery ~ (W * gamma), family="binomial", 
+mylogit <- glm(Recovery ~ (W * gamma), family=binomial("logit"), 
                data=filter(Wg_patterns, W<13))
 summary(mylogit) %>%
   xtable() %>%
@@ -869,12 +879,14 @@ summary(mylogit) %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
 ```
 
+#### Delayed Trajectory
+
 The _Delayed_ trajectory:
 
 ```{r}
-mylogit <- bigglm(Delayed ~ (W * gamma), 
-                 family=binomial("logit"), 
-                 data=filter(Wg_patterns, W < 13) )
+mylogit <- glm(Delayed ~ (W * gamma), 
+               family=binomial("logit"), 
+               data=filter(Wg_patterns, W < 20) )
 summary(mylogit) %>%
   xtable() %>%
   kable() %>%
