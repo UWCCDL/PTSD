@@ -35,7 +35,13 @@ library(biglm)
 library(RColorBrewer)
 ```
 
+# Model and Simulations
+
 This is an analysis of the PTSD model "complete" simulations ("Simulation 3").
+
+## Underlying memory model
+
+The underlying memory model is John Anderson's ACT-R. 
 
 ```{r fig.width=6, fig.height=6}
 # Simulate ACT-R
@@ -115,6 +121,11 @@ ggplot(ldf,
   scale_color_viridis("", option="plasma", discrete=T, end = .8, direction=-1) +
   theme_pander()
 ```
+
+## Event Distribution
+
+The model lives in a sumulated world in which memories are automatically retrived in response to changes in the environment. These changes, called _events_ occur probabilitistically, with Gamma distrib  a predermined frequen
+
 The distribution of Gamma events is this:
 
 * Frequency: 2.1, 175 (shape, scale)
