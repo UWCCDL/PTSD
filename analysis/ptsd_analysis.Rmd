@@ -852,15 +852,18 @@ tidy(man) %>%
 
 The MANOVA shows that both factors and their interactions are significant. We can now carry out a trajectory by trajectory analysis.
 
-First, we can examine the effects on the _Resilient_ trajectory. Because of the massive amount of positive cases when _W_ = 12, we are going to use the `bigglm` function, which handles cases better.
+Because of the large varince in the proportion of trajectories (due to the massive effects of _W_), none of the interaction terms are significant. Thus, we analyzed all four trajectories with a simpler generalized linear model of the form $Y = \beta_0 + \beta_W W + \beta_{\gamma} \gamma  + \epsilon$, using a logistic link function. 
 
 #### Resilient Trajectory 
 
 ```{r}
-mylogit <- bigglm(Resilient ~ W * gamma, 
+mylogit <- glm(Resilient ~ W + gamma, 
                   family = binomial("logit"),
                   data = Wg_patterns)
-summary(mylogit) 
+summary(mylogit)  %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
 ```
 Surprisingly, there is no significant effect of either parameter on the Resilient trajectory. This is likely due to the massive amount of variance, with the Resilient Trajectory going from being almost absent when _W_ = 4 to being the only possible  trajectory when _W_ = 12.
 
@@ -869,7 +872,7 @@ Surprisingly, there is no significant effect of either parameter on the Resilien
 We can then examine the _Chronic_ trajectory:
 
 ```{r}
-mylogit <- glm(Chronic ~ (W * gamma), family=binomial("logit"), 
+mylogit <- glm(Chronic ~ (W + gamma), family=binomial("logit"), 
                data=Wg_patterns)
 summary(mylogit) %>%
   xtable() %>%
@@ -882,7 +885,7 @@ summary(mylogit) %>%
 Then, we on the Recovery trajectory.
 
 ```{r}
-mylogit <- glm(Recovery ~ (W * gamma), family=binomial("logit"), 
+mylogit <- glm(Recovery ~ (W + gamma), family=binomial("logit"), 
                data=filter(Wg_patterns, W<13))
 summary(mylogit) %>%
   xtable() %>%
@@ -895,7 +898,7 @@ summary(mylogit) %>%
 The _Delayed_ trajectory:
 
 ```{r}
-mylogit <- glm(Delayed ~ (W * gamma), 
+mylogit <- glm(Delayed ~ (W + gamma), 
                family=binomial("logit"), 
                data=filter(Wg_patterns, W < 20) )
 summary(mylogit) %>%
@@ -1010,8 +1013,6 @@ ggplot(data=R_test, aes(x="", y=N/100, fill=Trajectory)) +
         axis.text.x = element_blank()) 
 ```
 
-
-
 As before, we can start with a MANOVA:
 
 ```{r}
@@ -1023,6 +1024,8 @@ tidy(man) %>%
 ```
 
 The MANOVA shows that rumination is significant. We can now carry out a trajectory by trajectory analysis.
+
+#### Resilient Trajectory
 
 First, we can examine the effects on the _Resilient_ trajectory.
 
@@ -1036,6 +1039,7 @@ summary(mylogit) %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
 ```
 
+#### Chronic Trajectory
 
 We can then examine the _Chronic_ trajectory:
 
@@ -1047,8 +1051,9 @@ summary(mylogit) %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
 ```
 
-The, we on the Recovery trajectory.
+#### Recovery Trajctory
 
+The, we analyze the Recovery trajectory.
 
 ```{r}
 mylogit <- glm(Recovery ~ R, family="binomial", data = R_patterns)
@@ -1226,8 +1231,7 @@ ggplot(filter(hsize_trajectory, I != 1),
 ```
 
 
-# 
-# Functional Connectivity
+## Functional Connectivity
 
 ```{r}
 k <- a %>%
