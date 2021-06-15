@@ -1,0 +1,70 @@
+---
+title: "GGSeg Experiment"
+author: "Andrea Stocco"
+date: "6/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggseg)
+library(viridis)
+```
+
+## R Markdown
+
+Modified version of the test
+
+Random data
+
+```{r}
+someData <- tibble(
+  region = rep(c("parahippocampal", "medial orbitofrontal", "entorhinal"), 2), 
+  p = sample(seq(0,.5,.001), 6),
+  groups = c(rep("g1", 3), rep("g2", 3))
+)
+```
+
+Example visualization:
+
+```{r}
+someData %>%
+  group_by(groups) %>%
+  ggplot() +
+  geom_brain(atlas = dk, 
+             position = position_brain(hemi ~ side),
+             aes(fill = p)) +
+  coord_sf(xlim = c(350, 700), ylim=c(240, 450)) +
+  facet_wrap(~groups) + scale_fill_viridis(option = "plasma") +theme_minimal()
+```
+
+Example visualization:
+
+```{r}
+someData %>%
+  filter(groups == "g1") %>%
+  ggplot() +
+  geom_brain(atlas = dk, 
+             show.legend = T,
+             aes(fill = p)) +
+  coord_sf(xlim = c(750, 1050)) +
+  scale_fill_viridis(option = "plasma") +
+  theme_brain2(text.family = "sans", text.colour="black")
+```
+
+Another atlas
+
+```{r}
+someData %>%
+  filter(groups == "g1") %>%
+  ggplot() +
+  geom_brain(atlas = ggsegYeo2011::yeo7, 
+             show.legend = T,
+             aes(fill = p)) +
+  coord_sf(xlim = c(750, 1050)) +
+  scale_fill_viridis(option = "plasma") +
+  theme_brain2(text.family = "sans", text.colour="black")
+```
+
+
