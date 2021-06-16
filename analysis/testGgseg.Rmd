@@ -67,4 +67,40 @@ someData %>%
   theme_brain2(text.family = "sans", text.colour="black")
 ```
 
+Basic
 
+```{r}
+someData = dk_3d %>% 
+  filter(surf == "inflated" & hemi == "right") %>% 
+  unnest(ggseg_3d) %>% 
+  ungroup() %>% 
+  select(region) %>% 
+  na.omit() %>% 
+  mutate(p = sample(seq(0,.5, length.out = 100 ), nrow(.)) %>% 
+           round(2)) 
+
+ggseg3d(.data = someData, 
+        atlas = dk_3d,
+        colour = "p", text = "p") %>% 
+  pan_camera("right medial")
+```
+
+Test
+
+```{r, fig.width=6, fig.height=5}
+data3d <- aseg_3d %>% 
+  unnest(cols = ggseg_3d) %>% 
+  select(label) %>% 
+  filter(grepl("Hippocampus|Amygdala", label)) %>%
+  filter(grepl("Left", label)) %>%
+  mutate(p = c(1,2)) 
+
+ggseg3d(data3d, 
+        atlas = aseg_3d,
+        colour = "p", text = "p",
+        na.alpha =0,
+        palette=c("dodgerblue" = 1, "red" = 2)) %>%
+  pan_camera("right medial") %>%
+  remove_axes() %>%
+  add_glassbrain(hemisphere = "right") %>
+```
