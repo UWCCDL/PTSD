@@ -1,0 +1,1594 @@
+---
+title: "Analysis of PTSD Model Simulations"
+author: "Andrea Stocco"
+date: "2/7/2021"
+output:
+  html_document:
+    code_folding: hide
+    theme: yeti
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  word_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Hmisc)
+library(tidyverse)      # The foundation
+library(ggplot2)        # The foundatio for plots
+library(broom)          
+library(scales)
+library(ggthemes)       # Needs for theme_pander()
+library(ggrepel)        # Needed for labels in pie charts
+
+library(viridis)        # For color-blind graded scales (using plasma)
+library(ggsci)          # Modern discrete color palettes (D3, JAMA) 
+library(RColorBrewer)   # Custom scales (purple scale is used)
+
+library(kableExtra)     # Tables
+library(xtable)         # Tables
+
+library(gridExtra)      # Multi plot alignment
+library(patchwork)      # Multi-plot alignment
+
+library(ggseg)          # Brain visualization (standard DK atlas)
+
+```
+
+# Model and Simulations
+
+This is an analysis of the PTSD model "complete" simulations ("Simulation 3").
+
+## Trajectories to simulate
+
+One of the goals of the model is to simulate therecovery trkjaectories in PTSD. The classic distinction is between four different trajectories, Resilient, Recovery, Chronic, and Delayed. These trajectories can be stylized as such
+
+```{r fig.width=6, fig.height=4}
+time <- -20:60
+
+resilient <- rep(0, length(time))
+chronic <- tanh(time/2)
+delayed <- time**2 / max(time**2)
+#recovery <- chronic - delayed
+recovery <- chronic + ((60 - time)**2 / max(time**2)-1)
+#recovery <- recovery/max(recovery)
+
+resilient[time <= 0] <- 0
+chronic[time <= 0] <- 0
+delayed[time <= 0] <- 0
+recovery[time <= 0] <- 0
+
+wideal <- tibble(Day = time, 
+                Chronic = chronic,
+                Delayed = delayed,
+                Recovery = recovery,
+                Resilient = resilient)
+        
+ideal <- wideal %>%
+  pivot_longer(cols=c("Chronic", "Delayed", "Resilient", "Recovery"),
+               values_to = "CTraumatic",
+               names_to = "Trajectory")
+
+ideal$Trajectory <- factor(ideal$Trajectory,
+                           levels = c("Recovery", "Delayed", "Resilient",  "Chronic"))
+
+ggplot(ideal, 
+       aes(x=Day, 
+           y=CTraumatic, 
+           col=Trajectory, 
+           fill=Trajectory)) +
+  #geom_smooth(method="loess", span=0.2) +
+  geom_line(size=2, alpha=0.75) +
+  ggtitle("Theoretical Recovery Trajectories") +
+  ylab("Number of Memory Intrusions") +
+  geom_vline(data=tibble(), 
+             aes(xintercept=-0.35)) +
+  scale_color_d3() +
+  theme_pander()  +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+```
+
+## Underlying memory model
+
+The underlying memory model is John Anderson's ACT-R. 
+
+```{r fig.width=6, fig.height=6}
+# Simulate ACT-R
+
+decay <- function(time, t0=0, rate=.5) {
+    if (time <= t0) {
+      NA
+    } else {
+      (time - t0)**(-rate)
+    }
+}
+
+vdecay <- Vectorize(decay)
+
+time <- seq(1, 100, 1)
+
+t1 = vdecay(time, t0=1)
+t2 = vdecay(time, t0=20)
+t3 = vdecay(time, t0=55)
+t4 = vdecay(time, t0=65)
+
+
+df <-data.frame(Time=time, 
+           trace1 = vdecay(time, t0=1),
+           trace2 = vdecay(time, t0=20),
+           trace3 = vdecay(time, t0=55),
+           trace4 = vdecay(time, t0=65))
+
+
+ldf <- df %>%
+  # mutate(Total = if_else(is.na(trace1), 0, trace1) +
+  #          if_else(is.na(trace2), 0, trace2) +
+  #          if_else(is.na(trace3), 0, trace3) +
+  #          if_else(is.na(trace4), 0, trace4))  %>%
+  pivot_longer(cols = c("trace1", "trace2", "trace3", "trace4"),
+               names_to = "Trace", values_to="Activation")
+
+ldf$Trace <- fct_recode(ldf$Trace, 
+                        "Trace 1" = "trace1",
+                        "Trace 2" = "trace2",
+                        "Trace 3" = "trace3",
+                        "Trace 4" = "trace4")
+
+ldf <- ldf %>%
+  add_column(Source="Individual Traces")
+
+t1[is.na(t1)] <-0
+t2[is.na(t2)] <-0
+t3[is.na(t3)] <-0
+t4[is.na(t4)] <-0
+total <- log(t1+t2+t3+t4)
+
+totaldf <- tibble(Time=time, 
+                  Activation = total,
+                  Trace = "Memory",
+                  Source="Memory")
+
+ldf <- rbind(ldf, totaldf)
+
+ldf$Source <- factor(ldf$Source, levels = c("Memory", "Individual Traces"))
+
+ggplot(ldf, 
+       aes(x=Time, y=Activation, col=Trace)) +
+  geom_line(size=1,
+            alpha=1) +
+            #linetype="dashed") +
+  # stat_summary(geom="line", fun = sum, 
+  #              col="black", 
+  #              alpha=0.5,
+  #              position = position_dodge()) +
+  # #scale_y_log10() +
+  facet_wrap(~ Source, ncol=1,
+             scales = "free_y") +
+  #ylim(0, 1.6) +
+  #ylab(expression(paste("Availability of Memory ", italic(m))))+
+  ylab("Activation") +
+  scale_color_viridis("", option="plasma", discrete=T, end = .8, direction=-1) +
+  theme_pander()
+```
+
+<<<<<<< HEAD
+### Neuroiological interpretation
+
+```{r}
+brain_model <- tibble(
+  region = c("parahippocampal", "entorhinal", "medial orbitofrontal",
+             "superior frontal", "paracentral", "precuneus"),
+  component = c("LTM", "Emotional Intensity", "Retrieval Control",
+                "Context", "Context", "Context")
+)
+
+#brain_model$component <- as_factor(brain_model$component)
+
+brain_model %>%
+#  group_by(component) %>%
+  ggplot(aes(fill = component)) +
+  geom_brain(atlas = dk, 
+             col="white",
+             show.legend = T
+             ) +
+  labs(fill="Model\nComponent") +
+  #scale_fill_lancet(na.value="lightgrey") +
+  scale_fill_manual(na.value="lightgrey", 
+                     values=c("dodgerblue2", "goldenrod1", "firebrick3", 
+                              "lightskyblue3", "lightskyblue3", "lightskyblue3"),
+                     breaks = brain_model$component) +
+  coord_sf(xlim = c(750, 1050)) +
+  theme_brain2(text.family = "sans",
+               text.colour="black") 
+
+```
+
+=======
+>>>>>>> 32668a1cf1bb305b84e9c0696be00ab05ea6ab15
+## Event Distribution
+
+The model lives in a sumulated world in which memories are automatically retrived in response to changes in the environment. These changes, called _events_ occur probabilitistically, with Gamma distrib  a predermined frequen
+
+The distribution of Gamma events is this:
+
+* Frequency: 2.1, 175 (shape, scale)
+* Rumination, 6, 100
+
+```{r}
+t <- 0:(24*60)
+E <- dgamma(t, shape=2.1, rate=1/175)
+R <- dgamma(t, shape=6, rate=1/100)
+
+dists <- data.frame(Time=t, Events = E, Rumination = R) %>%
+  pivot_longer(names_to = "Type", 
+               values_to = "Probability",
+               cols=c("Events", "Rumination"))
+
+ggplot(dists, aes(x=Time, y=Probability, col=Type, fill=Type)) +
+  geom_line() +
+  geom_ribbon(data=dists, aes(x=Time, ymax=Probability, ymin=0), alpha=0.25) +
+  scale_x_continuous(breaks=60*c(0, 4, 8, 12, 16, 20),
+                     limits=c(0, 24*60),
+                     labels=c("8:00am", 
+                              "12:00pm",
+                              "4:00pm",
+                              "8:00pm",
+                              "12:00am",
+                              "4:00am")) +
+  scale_color_aaas() +
+  scale_fill_aaas() +
+  ggtitle("Probability of Retrievals During the Day") +
+  theme_pander()
+```
+
+# Load and Transform the Data
+
+First, we are going to load the "aggregated" version of the simulations, with 
+the events already aggregated by day. 
+
+```{r load}
+CREATE_AGGREGAGATED = F
+
+if (CREATE_AGGREGAGATED) {
+  d <- read_csv("../simulations/simulations3.csv")
+  #d <- read_csv("simulations3.csv", col_types = cols())
+  d <- d %>%
+    mutate(Day = floor(Time / (60*60*24)) - 100,
+           Hour = floor((d$Time / 3600) %% 24),
+           RuminationFrequency=as_factor(RuminationFrequency))
+  names(d)[18] <- "W"
+  
+  d <- d %>% 
+    dplyr::select(Run, Day, PTEV, Gamma, PTES, W, 
+                  NumAttributes, RuminationFrequency, 
+                  MemoryEntropy, ChunkSimilarity, Traumatic, ChunkV) %>%
+    filter(Day > -20)
+  
+  a <- d  %>%
+    group_by(Run, Day, PTEV, PTES, Gamma, 
+             NumAttributes, RuminationFrequency, W) %>%
+    summarise(MemoryEntropy = mean(MemoryEntropy),
+              ChunkSimilarity = mean(ChunkSimilarity),
+              PTraumatic = mean(Traumatic),
+              CTraumatic = sum(Traumatic),
+              ChunkV = mean(ChunkV))
+  
+  write_csv(x=a, file = "../simulations/simulations3_aggregated2.csv")
+}
+
+a <- read_csv(gzfile("../simulations/simulations3_aggregated2.csv.gz"),
+              col_types = cols())
+```
+
+Then, we are going to rename the simulation variables to make them consistent with
+the names used in published papers:
+
+```{r rename}
+a <- a %>%
+  rename(I = PTEV) %>%
+  rename(gamma = Gamma) %>%
+  rename(A = NumAttributes) %>%
+  rename(C = PTES) %>%
+  rename(R = RuminationFrequency)
+```
+
+
+## Recovery Trajectories
+
+To identify a recovery trajectory, we need to first define a classification function. Here, we are going to use the following algorithm:
+
+First the model calculates three average values:
+
+1. The mean probability _P(baseline)_ of retrieving intrusive memories in the 10 days 
+  preceding the PTE, or _baseline_ period. By definition, this is always zero.
+  
+2. The mean probability _P(acute)_ of retrieving intrusive memories in the 10 days 
+  following the PTE, or during the _acute_ period.
+  
+3. The mean probability _P(chronic)_ of retrieving intrusive memories in the last 
+  ten days of the second month after the PTE (i.e, days 51-60), or the _chronic_ 
+  period.
+  
+Then, the model calculates two statistical tests:
+
+1. A _t_-test between the baseline and acute period, or _acute test_; and 
+2. A _t_-test between the acute-period and the chronic period, or _chronic test_.
+
+And finally we apply the following decision tree:
+
+1. If the acute test is significant at p < .05 (Pacute > Pbaseline), then
+   
+   1.1. If the chronic test is also significant at _p_ < .05, and Pchronic > Pacute, 
+         we classify the trajectory as **Delayed**.
+
+   1.2. If the chronic test is significant at _p_ < .05 but 
+        _P(chronic)_ < _P(acute)_, then we classify the trajectory as **Recovery**;
+        
+   1.3. If the chronic test is non-significant, then _P(chronic)_ ~ _P(acute)_ , 
+        and we classify the trajectory as **Chronic**.
+
+2. If, instead, the acute test is not significant and _P(acute)_ ~ _P(baseline)_, 
+   then:
+   
+   2.1. If the chronic test is significant at _p_ < .05, then 
+        _P(chronic)_ > _P(acute)_, and we classify the trajectory as **Delayed**.
+   
+   2.2 If the chronic test is also not significant, then 
+       _P(chronic)_ ~ _P(baseline)_ ~ _P(acute)_, and we classify the trajectory
+       as **Resilient**.
+
+```{r classify}
+# Classifies people based on trajectory:
+# Chronic = 1
+# Recovery =2
+# Delay    =3
+# resilient= 4
+#
+classify <- function(days) {
+  g1 <- days[10:19]
+  g2 <- days[21:30]
+  g3 <- days[70:79]
+  t12 <- t.test(g1, g2)
+  t23 <- t.test(g2, g3)
+  category <- 0
+  if (!is.na(t12$p.value) & t12$p.value < 0.05) {
+    # t1 < t2
+    if (!is.na(t23$p.value) & t23$p.value < 0.05) {
+      # t2 <> t3
+
+      if (!is.na(t23$statistic) & t23$statistic > 0) {
+        # t1 < t2, t2 > 3
+        category <- "Recovery" #2  # Recovery
+      } else {
+        # t1 < t2, t2 < t3
+        category <- "Delayed" # 3 # Delayed
+      }
+    } else {
+      # t1 < t2, t2 = t3
+      category <- "Chronic" # 1 # Chronic
+    }
+  } else {
+    # t1 == t2
+    if (!is.na(t23$p.value) & t23$p.value < 0.05) {
+      # t1 == t2, t2 < t3
+      category <- "Delayed" #3 # Delayed
+    } else {
+      # t1 == t2, t2 = t3
+      category <- "Resilient" # 4 # Resilient
+    }
+  }
+  category
+}
+
+patterns <- a %>%
+  group_by(Run, I, C, A, R, W, gamma) %>%
+  dplyr::summarize(Trajectory = classify(PTraumatic))
+
+patterns <- patterns %>% ungroup
+```
+
+Finally, let's assign each data point in the main averages with the corresponding trajectory, and re-order the trajectories in order of severity:
+
+```{r}
+a <- inner_join(a, patterns)
+a$Trajectory <- factor(a$Trajectory,
+                      levels = c("Recovery", "Delayed", "Resilient",  "Chronic"))
+```
+## Chronic Probability of Traumatic Intrusions
+
+The other "behavioral" measure is the incidence of traumatic memory intrusions. As an aggregate measure, we will consider only the averages in the "Chronic" period, which we will be taking as indicative of long-term consequences of the PTSD.
+
+```{r}
+traumatic <- a %>%
+  filter(Day > 1) %>%
+  group_by(Run, I, C, R, W, gamma) %>%
+  dplyr::summarize(PTraumatic = mean(PTraumatic),
+            CTraumatic = sum(CTraumatic))
+```
+
+At this point, we can visualize the mean aggregated timecourse of intrusions for each trajectory.
+
+
+```{r, fig.width=5, fig.height=3.5}
+K = rev(brewer.pal(5, "Greys"))
+
+TOTAL <- 28800  # Param combos
+
+traj_total <- a %>%
+  filter(Day == 30) %>%
+  group_by(Trajectory) %>%
+  summarise(N = length(CTraumatic),
+            Prop = length(CTraumatic)/TOTAL,
+            MeanC = mean(CTraumatic))
+
+ggplot(filter(a, I != 1), 
+       aes(x=Day, y=CTraumatic, col=Trajectory, fill=Trajectory)) +
+  ggtitle("Memory Intrusions by Trajectory") +
+  #geom_vline(data=props, aes(xintercept=-0.5)) +
+  annotate("segment", x=-0, xend=-0,
+           y=-Inf, yend=Inf, col="black", lty=1, size=1) +
+  annotate("rect", xmin=50, xmax=60,
+           ymin=-Inf, ymax=Inf, fill=K[1], alpha=0.3)+
+  annotate("rect", xmin=1, xmax=10,
+           ymin=-Inf, ymax=Inf, fill=K[3], alpha=0.3)+
+  annotate("rect", xmin=-10, xmax=-1,
+           ymin=-Inf, ymax=Inf, fill=K[4], alpha=0.3)+
+  
+  annotate("text", x= -5.5, y=15, label="Base")+
+  annotate("text", x= 5.5, y=15, label="Acute")+
+  annotate("text", x= 55, y=15, label="Chronic")+
+  
+  geom_text(data=traj_total, aes(x= 30, y = MeanC, 
+                                 label=percent(Prop, accuracy = 0.1)),
+            vjust=-.5, show.legend=F) +
+  
+  stat_summary(fun.data = mean_se, geom="line") +
+  stat_summary(fun.data = mean_cl_normal, 
+               geom="ribbon", alpha = 0.25, col=NA) +
+  coord_cartesian(ylim=c(0, 15)) +
+  ylab("Total Number of Memory Intrusions") +
+  scale_color_d3() +
+  scale_fill_d3() +
+  theme_pander()
+
+ggsave("figures/figure6.png", dpi = 300)
+```
+
+The results indicate that our classification was correct; the trajectories behave as planned.
+
+## Finding a baseline to compare the model to existing literature
+
+Since we have no idea how typical the model parameters are of the existing patients and their cases, we need to provide some sort of baselines. To do so, we will use the proportion of trajectories that were given by Galatzer-Levy and Bonanno in their meta-analysis. They are:
+
+* Resilient, 0.657
+* Recovery, 0.208 
+* Chronic, 0.106
+* Delayed, 0.089
+
+
+Note that they do not normalize to one, due to the lack of some trajectories in some studies. To use them, we will need to make sure to normalized them first, which can be done at time of testing.
+
+```{r}
+T_observed <- c(0.657, 0.208, 0.106, 0.089)
+names(T_observed) <- c("Resilient", "Recovery", "Chronic", "Delayed")
+```
+
+We can now plot the percentages and the patterns by trajectory:
+
+```{r}
+props <- patterns %>%
+  group_by(Trajectory, 
+           I, 
+           gamma, 
+           C, 
+           W,
+           R,
+           #A,
+           ) %>%
+  dplyr::summarize(N = length(Trajectory)) %>%
+  dplyr::mutate(Prop = N/50)
+
+props %>%
+  pivot_wider(id_cols=c(I, 
+                        gamma, 
+                        C,
+                        W,
+                        R,
+                        #A,
+                        ), 
+              names_from = Trajectory,
+              values_from = N,
+              values_fill=0) -> test
+
+mychi <- function(vals) {
+  chisq.test(vals, 
+             p=T_observed, 
+             rescale.p=T)$statistic
+}
+
+mycorr <- function(vals) {
+  cor(vals, T_observed)
+}
+
+myrmse <- function(vals) {
+  v <- 50 * (T_observed/sum(T_observed))
+  sqrt(mean((vals - v)^2))
+}
+
+
+lprops <- test %>%
+  pivot_longer(cols=c("Resilient", "Recovery", "Chronic", "Delayed"),
+               names_to = "Trajectory",
+               values_to = "N")
+
+lprops$Trajectory <- factor(lprops$Trajectory,
+                      levels = c("Recovery", "Delayed", "Resilient",  "Chronic"))
+
+# Suppresses X-squared approximation warnings
+old.warn <- options()$warn
+options(warn = -1)
+
+atest <- lprops %>%
+  group_by(I, 
+           gamma, 
+           C, 
+           W,
+           R,
+           #A,
+           ) %>%
+  summarise(Chi = mychi(N), r=mycorr(N), RMSE=myrmse(N))
+
+# resets warnings
+options(warn = old.warn)
+
+test <- inner_join(test, atest)
+```
+
+Now, we can identfy the baseline as the condition with the minimum $\chi^2$-squared test (or the minimum RMSE, they are the same)
+
+This shows how correlation coefficient and $\chi^2$ are related, while the RMSE does not really capture either of them:
+
+```{r}
+ggplot(test, aes(x=Chi, y=r, col=RMSE)) + 
+  geom_point(size=4, alpha=0.5) + 
+  scale_color_viridis(option="plasma")+
+  ylab(expression(italic(r))) +
+  xlab(expression(chi^2)) +
+  ggtitle("Relationship between Error Measures in Trajectories") +
+  theme_pander()
+```
+
+Now, let's identify a "baseline" condition---the one that most resembles the distribution of trajectories identified by Galatzer-Levy. 
+
+```{r}
+baseline <- test %>%
+  filter(Chi == min(test$Chi))
+
+baseline %>%
+  kable(digits=3) %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+
+And here is a visual representation of the four trajectories at that baseline (smoothed, because there is too much day-to-day variance in this small sample).
+
+```{r fig.width=5, fig.height=3.5}
+baseline_a <- a %>%
+  filter(I == baseline$I,
+         W == baseline$W,
+         C == baseline$C,
+         R == baseline$R,
+         gamma == baseline$gamma,
+         )
+
+base_total <- baseline_a %>%
+  filter(Day == 15) %>%
+  group_by(Trajectory) %>%
+  summarise(N = length(CTraumatic),
+            Prop = length(CTraumatic)/100,
+            MeanC = mean(CTraumatic))
+
+         
+ggplot(baseline_a, 
+       aes(x=Day, y=CTraumatic, col=Trajectory, fill=Trajectory)) +
+  geom_smooth(method="loess", span=0.2) +
+  ggtitle("Trajectories for Best-Fitting Parameters") +
+  scale_color_d3() +
+  geom_text(data=base_total, aes(x= c(25, 10, 20, 10), y = MeanC, 
+                                 label=percent(Prop, accuracy = 0.1)),
+            vjust=-.5, show.legend=F) +
+  ylab("Total Number of Memory Intrusions") +
+  geom_vline(data=props, aes(xintercept=-0.25)) +
+  scale_fill_d3() +
+  theme_pander() 
+
+ggsave("figures/figure7.png", dpi=300)
+```
+
+The Chonic and Delayed trajectories, being the least common, exhibit significant ups and downs, hence the need for Loess smoothing. Nonetheless, the trajectories remain visible and clearly identifiable.
+
+But how good is the baseline condition, in terms of being closed to Galatzer-Levy's estimated pooled values? We can just examine the significance of the $\chi^2$ test.
+
+```{r}
+baseline_vals <- baseline[c("Resilient", "Recovery", "Chronic", "Delayed")]
+chi <- chisq.test(baseline_vals, p=T_observed, rescale.p = T)
+```
+
+The result is not too bad---A bit dissimilar, but not too far either, and not statistically significant ($\chi^2$ = `r round(chi$statistic, 6)`, _p_ = `r round(chi$p.value, 6)`)).
+
+The main difference is that the delayed onset trajectory has a higher proportion than in the review. However, Galatzer-Levy and Bonanno themselves note that the resilient (M= 0.66) delayed onset trajectories (M = 0.099) has a higher prevalence in studies of single-point event. If these corrected prevalences are taken into account, the chi squared reduces further.
+
+# Factors affecting the distribution of trajectories
+
+Although theoretically possible, a full five-way analysis of model's factors and interactions would be statistically uninformative. Instead, we will examine the model's outcomes and behaviors with the respect to the known main effects reported in the literature.
+
+We can now examine, one by one, how the different factor in the model affect the distribution of trajectories.
+
+To examine these factors, we need to use logistic regression. And, to do so, we need to create a number of dummy variables specifying a binary status for each trajectory in `patterns`.
+
+```{r}
+patterns <- patterns %>%
+  mutate(Resilient = if_else(Trajectory == "Resilient", 1, 0),
+         Chronic = if_else(Trajectory == "Chronic", 1, 0),
+         Recovery = if_else(Trajectory == "Recovery", 1, 0),
+         Delayed = if_else(Trajectory == "Delayed", 1, 0))
+```
+
+
+## External factors: PTE Intensity and Context Similarity
+
+There are two main external factors in the model: The intensity of the PTE (_I_) and the contextual similarity (_C_). They will be both examined here.
+
+### Effects on Timecourses
+
+First, let's load additional values of _I_ and _C_ in addition to the ones in the baseline.
+
+```{r}
+IC_a <- a %>%
+  filter(#I == baseline$I,
+    I != 1,
+         W == baseline$W,
+         #C == baseline$C,
+         R == baseline$R,
+         gamma == baseline$gamma,
+         #A == baseline$A
+         )
+
+IC_patterns <- patterns %>%
+    filter(#I == baseline$I,
+    I != 1,
+         W == baseline$W,
+         #C == baseline$C,
+         R == baseline$R,
+         gamma == baseline$gamma,
+         #A == baseline$A
+         )
+
+IC_trajectories <- lprops %>%
+    filter(#I == baseline$I,
+    I != 1,
+         W == baseline$W,
+         #C == baseline$C,
+         R == baseline$R,
+         gamma == baseline$gamma,
+         #A == baseline$A
+         )
+
+
+IC_traumatic <- traumatic %>%
+      filter(#I == baseline$I,
+         I != 1,
+         W == as.numeric(baseline$W),
+         #C == baseline$C,
+         R == as.numeric(baseline$R),
+         gamma == as.numeric(baseline$gamma),
+         #A == baseline$A
+         )
+```
+
+First, let's look at the time course of intrusions: 
+
+
+```{r, fig.width=5, fig.height=4}
+ggplot(IC_a, 
+       aes(x=Day, y=CTraumatic, col=as.factor(I), fill=as.factor(I))) +
+  #geom_smooth(method="loess", span=0.2) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  stat_summary(fun.data = mean_cl_normal, 
+               geom="ribbon", alpha = 0.25, col=NA) +
+  
+  facet_wrap(~C, labeller = label_bquote(italic(C) == .(C))) + #label=label_both) +
+  labs(col=expression(italic(I)[PTE]), 
+       fill=expression(italic(I)[PTE]), 
+       facet="Z") +
+  #coord_cartesian(ylim=c(0, 0.5)) +
+  ggtitle("Effects of PTE Intensity") +
+  ylab("Number of Traumatic Memory Intrusions") +
+  
+  scale_color_viridis(discrete=T, option="plasma", end=0.8) +
+  scale_fill_viridis(option = "plasma", discrete = T, end=0.8) +
+  geom_vline(data=props, aes(xintercept=-0.15)) +
+  theme_pander()
+```
+
+The effects of _I_ and _C_ on the probabilities of recall during the Chronic period can be understood with a linear model analysis
+
+```{r}
+IC_mod <- glm(CTraumatic ~ I * C, family="poisson", IC_traumatic)
+summary(IC_mod) %>%
+  xtable %>%
+  kable %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### Effects on Trajectories
+
+And here are the changes in trajectories.
+
+```{r fig.height=8, fig.width=5}
+
+
+ggplot(data=IC_trajectories, aes(x="", y=N/100, fill=Trajectory)) +
+  geom_bar(stat = "identity", col="grey", width=1) +
+  #facet_grid(C~I, labeller = label_both) +
+  facet_grid(C~I, labeller = label_bquote(
+    rows = italic(C) == .(C),
+    cols = italic(I)[PTE] == .(I))) +
+  coord_polar("y", start=0) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 2L)) +
+  scale_fill_d3() +
+  scale_color_d3() +
+  ylab("PTE Intensity") +
+  xlab("Contextual Similarity") +
+  ggtitle("Effect of External Factors on Trajectories") +
+  geom_text_repel(aes(label=percent(N/100, .1)), col="white",
+            position=position_stack(vjust=0.5 ), size=3)+
+  theme_pander() +
+  theme(axis.ticks = element_blank(), 
+        axis.text.y = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = "bottom") 
+```
+
+Are the change in trajectories meaningful? To do so, we first examine the trajectories using a MANOVA:
+
+```{r}
+man <- manova(cbind(Resilient, Recovery, Delayed) ~ I * C, IC_patterns)
+tidy(man) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+Then, we examine each category independently, we will perform a logistic regression on dummy binary variables that categorize each run of the model as belonging to that category, or not.
+
+In the case of the Resilient and Recovery trajectories, both intensity _I_, Context _C_ are significant, but their interaction is not. This implies that the effects of _I_ and _C_ are additive. 
+
+Furthermore, for the Resilient trajectories, the coefficients are negative, implying that the proportion of Recovery and Resilient trajectories decreases as the intensity and the context similarity increase.
+
+#### Resilient Trajectory
+
+```{r}
+mylogit <- glm(Resilient ~ (I*C), family="binomial", data=IC_patterns)
+summary(mylogit) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+#### Recovery Trajectory
+
+For Recovery trajectories, however, the coefficients are significantly positive, implying that the number of cases increase with the severity of intensity and similarity. This is likely due to a greater number of resilient models developing intrusive memories following PTE under greater contextual similarity.
+
+```{r}
+mylogit <- glm(Recovery ~ (I*C), family="binomial", data=IC_patterns)
+summary(mylogit) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+#### Chronic Trajector
+
+In the case of Chronic and Delayed trajectories, however, the pattern is different. In these cases, both the main factors and their interaction are significant. Furthermore, in both cases, the main factors have positive coefficients but their interaction is negative. This suggests that the effects of one factor decrease the size of the other factor increases. 
+
+```{r}
+mylogit <- glm(Chronic ~ (I*C), family="binomial", data=IC_patterns)
+summary(mylogit) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+#### Delayed Trajectory 
+
+```{r}
+mylogit <- glm(Delayed ~ (I*C), family="binomial", data=IC_patterns)
+summary(mylogit) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+
+## Internal Factors: Working Memory and Recollection Vividness
+
+The internal factors are two, differences in WMC and differences in vividness.
+
+This can be related to the difference in children.
+
+```{r}
+Wg_a <- a %>%
+  filter(I == baseline$I,
+         #W == baseline$W,
+         C == baseline$C,
+         R == baseline$R,
+         #gamma == baseline$gamma,
+         #A == baseline$A
+         )
+
+Wg_test <- lprops %>%
+    filter(I == baseline$I,
+         #W == baseline$W,
+         C == baseline$C,
+         R == baseline$R,
+         #gamma == baseline$gamma,
+         #A == baseline$A
+         )
+
+Wg_patterns <- patterns %>%
+    filter(I == baseline$I,
+         #I != 1,
+         #W == as.numeric(baseline$W),
+         C == baseline$C,
+         R == as.numeric(baseline$R),
+         #gamma == as.numeric(baseline$gamma),
+         #A == baseline$A
+         )
+
+Wg_traumatic <- traumatic %>%
+    filter(I == baseline$I,
+         #I != 1,
+         #W == as.numeric(baseline$W),
+         C == baseline$C,
+         R == as.numeric(baseline$R),
+         #gamma == as.numeric(baseline$gamma),
+         #A == baseline$A
+         )
+```
+
+### Effects on the Timecourse of Intrusive Memories
+
+Here we visualize the change in timecourses.
+
+```{r, fig.width=6, fig.height=3}
+Wg_a$gamma <- as_factor(Wg_a$gamma)
+ggplot(Wg_a, 
+       aes(x=Day, y=CTraumatic, col=gamma, fill=gamma)) +
+#  geom_point(alpha=0.1) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  stat_summary(fun.data = mean_cl_normal, 
+               geom="ribbon", alpha = 0.25, col=NA) +
+  
+  #geom_smooth(method="loess", span=0.2) +
+  facet_wrap(~W, ncol=3,
+             labeller  = label_bquote(
+               rows = italic(W) == .(W))) +
+  geom_vline(data=props, aes(xintercept=-0.15)) +
+  ylab("Number of\nTraumatic Memory Intrusions") +
+  #coord_cartesian(ylim=c(0, 0.75)) +
+  ggtitle("Effects of Idiographic Parameters") +
+  scale_color_viridis(expression(paste(gamma, " =")), discrete=T, 
+                      option="plasma", begin = 0, end=0.9) +
+  scale_fill_viridis(expression(paste(gamma, " =")), option = "plasma", 
+                     discrete = T, begin = 0, end=0.9) +
+  theme_pander() +
+  theme(legend.position = "bottom")
+```
+
+It is striking to notice that, within baseline levels of _I_ and _C_, the effects of working memory are incredibly large. This is likely due to the fact that the parameters were not properly calibrated.
+
+And here is the corresponding analysis. Like before, the main factors _W_ and $\gamma$ are significant. However, this time, their interaction is not, suggesting that their effects are additive.
+
+```{r}
+Wg_mod <- glm(CTraumatic ~ W * gamma, family="poisson", Wg_traumatic)
+summary(Wg_mod) %>%
+  xtable %>%
+  kable %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+### Effects on Trajectories
+
+And here are the changes in trajectories.
+
+```{r, fig.height=6, fig.width=5}
+ggplot(data=Wg_test, aes(x="", y=N/100, fill=Trajectory)) +
+  geom_bar(stat = "identity", col="white", width=1, alpha=1) +
+  facet_grid(gamma~W, 
+             labeller  = label_bquote(
+               rows = gamma == .(gamma),
+               cols = italic(W) == .(W))) +
+  coord_polar("y", start=0) +
+  #scale_fill_d3() +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 2L)) +
+  scale_fill_d3() +
+  xlab("Recollection Vividness") +
+  ylab("Cognitive Control") +
+  ggtitle("Effect of Idiographic Factors on Trajectories") +
+  geom_text_repel(aes(label=percent(N/100, .1)),
+            position=position_stack(vjust=0.5), size=3, col="white") +
+  #geom_text_repel() +
+  theme_pander() +
+  theme(axis.ticks = element_blank(), 
+        axis.text.y = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = "bottom") 
+```
+
+As before, we can start with a MANOVA:
+
+```{r}
+man <- manova(cbind(Resilient, Recovery, Delayed) ~ W * gamma, Wg_patterns)
+tidy(man) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+The MANOVA shows that both factors and their interactions are significant. We can now carry out a trajectory by trajectory analysis.
+
+Because of the large varince in the proportion of trajectories (due to the massive effects of _W_), none of the interaction terms are significant. Thus, we analyzed all four trajectories with a simpler generalized linear model of the form $Y = \beta_0 + \beta_W W + \beta_{\gamma} \gamma  + \epsilon$, using a logistic link function. 
+
+#### Resilient Trajectory 
+
+```{r}
+mylogit <- glm(Resilient ~ W + gamma, 
+                  family = binomial("logit"),
+                  data = Wg_patterns)
+summary(mylogit)  %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+Surprisingly, there is no significant effect of either parameter on the Resilient trajectory. This is likely due to the massive amount of variance, with the Resilient Trajectory going from being almost absent when _W_ = 4 to being the only possible  trajectory when _W_ = 12.
+
+#### Chronic Trajectory
+
+We can then examine the _Chronic_ trajectory:
+
+```{r}
+mylogit <- glm(Chronic ~ (W + gamma), family=binomial("logit"), 
+               data=Wg_patterns)
+summary(mylogit) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+#### Recovery Trajectory
+
+Then, we on the Recovery trajectory.
+
+```{r}
+mylogit <- glm(Recovery ~ (W + gamma), family=binomial("logit"), 
+               data=filter(Wg_patterns, W<13))
+summary(mylogit) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+#### Delayed Trajectory
+
+The _Delayed_ trajectory:
+
+```{r}
+mylogit <- glm(Delayed ~ (W + gamma), 
+               family=binomial("logit"), 
+               data=filter(Wg_patterns, W < 20) )
+summary(mylogit) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+## Comorbidty: Effects of Rumination
+
+```{r}
+R_a <- a %>%
+  filter(I == baseline$I,
+         W == baseline$W,
+         C == baseline$C,
+         #R == baseline$R,
+         gamma == baseline$gamma,
+         #A == baseline$A
+         )
+
+R_test <- lprops %>%
+    filter(I == baseline$I,
+         W == baseline$W,
+         C == baseline$C,
+         #R == baseline$R,
+         gamma == baseline$gamma,
+         #A == baseline$A
+         )
+
+R_patterns <- patterns %>%
+    filter(I == baseline$I,
+         #I != 1,
+         W == as.numeric(baseline$W),
+         C == baseline$C,
+         #R == as.numeric(baseline$R),
+         gamma == as.numeric(baseline$gamma),
+         #A == baseline$A
+         )
+
+R_traumatic <- traumatic %>%
+    filter(I == baseline$I,
+         #I != 1,
+         W == as.numeric(baseline$W),
+         C == baseline$C,
+         #R == as.numeric(baseline$R),
+         gamma == as.numeric(baseline$gamma),
+         #A == baseline$A
+         )
+```
+
+
+
+### Effects on the Timecourse of Intrusive Memories
+
+Here we visualize the change in timecourses.
+
+```{r, fig.width = 3, fig.height=3}
+ggplot(R_a, 
+       aes(x=Day, y=CTraumatic, col=as.factor(R), fill=as.factor(R))) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  stat_summary(fun.data = mean_cl_normal, 
+               geom="ribbon", alpha = 0.25, col=NA) +
+  geom_vline(data=props, aes(xintercept=-0.15)) +
+
+  #geom_smooth(method="loess", span=0.2) +
+  #facet_wrap(~R) +
+  #coord_cartesian(ylim=c(0, 0.75)) +
+  ylab("Number of\nTraumatic Memory Intrusions") +
+  #coord_cartesian(ylim=c(0, 0.75)) +
+  ggtitle("Effects of Rumination") +
+  scale_color_viridis(expression(paste(italic(R), " =")), discrete=T, option="plasma", end=0.8) +
+  scale_fill_viridis(expression(paste(italic(R), " =")), option = "plasma", discrete = T, end=0.8) +
+  theme_pander() +
+  theme(legend.position = "bottom")
+```
+
+The effects of Rumination are huge. This is likely due to the fact that the parameters were not properly calibrated.
+
+And here is the corresponding analysis. Like before, the main factors _W_ and $\gamma$ are significant. However, this time, their interaction is not, suggesting that their effects are additive.
+
+```{r}
+R_mod <- glm(CTraumatic ~ R, family="poisson", R_traumatic)
+summary(R_mod) %>%
+  xtable %>%
+  kable %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+
+### Effects on Trajectories
+
+And here are the changes in trajectories.
+
+```{r, fig.height=3, fig.width=5}
+ggplot(data=R_test, aes(x="", y=N/100, fill=Trajectory)) +
+  geom_bar(stat = "identity", col="white", width=1, alpha=1) +
+  facet_wrap(~ R, labeller = label_bquote(
+               rows = italic(R) == .(R))) +
+  coord_polar("y", start=0) +
+  #scale_fill_d3() +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 2L)) +
+  scale_fill_d3() +
+  ylab("Rumination") +
+  xlab("") +
+  ggtitle("Effect of Rumination on Trajectories") +
+  geom_text_repel(aes(label=percent(N/100, .1)),
+            position=position_stack(vjust=0.5), size=3, col="white") +
+  #geom_text_repel() +
+  theme_pander() +
+  theme(axis.ticks = element_blank(), 
+        axis.text.y = element_blank(),
+        axis.text.x = element_blank()) 
+```
+
+As before, we can start with a MANOVA:
+
+```{r}
+man <- manova(cbind(Resilient, Recovery, Delayed) ~ R, R_patterns)
+tidy(man) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+The MANOVA shows that rumination is significant. We can now carry out a trajectory by trajectory analysis.
+
+#### Resilient Trajectory
+
+First, we can examine the effects on the _Resilient_ trajectory.
+
+```{r}
+mylogit <- glm(Resilient ~ R, 
+               family = "binomial",
+               data = R_patterns)
+summary(mylogit) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+#### Chronic Trajectory
+
+We can then examine the _Chronic_ trajectory:
+
+```{r}
+mylogit <- glm(Chronic ~ R, family="binomial", data=R_patterns)
+summary(mylogit) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+#### Recovery Trajctory
+
+The, we analyze the Recovery trajectory.
+
+```{r}
+mylogit <- glm(Recovery ~ R, family="binomial", data = R_patterns)
+summary(mylogit) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+And, finally, The _Delayed_ trajectory:
+
+```{r}
+mylogit <- glm(Delayed ~ R, 
+               family="binomial", 
+               data=R_patterns)
+summary(mylogit) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+# Neurobiology of PTSD
+
+Finally, we will examine how the model captures some known effects of the neurobiology of PTSD and, in particular, the size of the hippocampus.
+
+## Hippocampus Size
+
+First, we define a baseline condition: No PTE (_I_ = 1) and $\gamma$ = 0.8.
+
+```{r}
+H1 <- a %>%
+  filter(I == 1 & gamma == 0.9 & C==0.25 & R == 0 & Day > 49) %>%
+  dplyr::select(MemoryEntropy) %>%
+  summarise(H=mean(MemoryEntropy)) %>%
+  as.double()
+```
+
+Then, we define a function that calculates memory entropy on the last _N_ days 
+of a timeseries.
+
+```{r}
+h_entropy <- function(timeseries, N = 10) {
+  L <- length(timeseries)
+  mean(timeseries[L-N:N])
+}
+```
+
+With this in place, we can now calculate the predicted decrease in hippocampus 
+size.
+
+```{r}
+hsize <- a %>%
+  filter(Day > 49) %>%
+  group_by(Run, I, C, R, W, gamma, Trajectory) %>%
+  dplyr::summarize(H = h_entropy(MemoryEntropy) - H1,
+            HippocampusDecrease = 100*(mean(MemoryEntropy)/H1 - 1),
+            MeanTraumatic = mean(PTraumatic),
+            NumTraumatic = sum(CTraumatic),
+            MeanSimilarity = mean(ChunkSimilarity),
+            Trajectory = )
+```
+
+### Visualizing Hippocampus Volume Decrease
+
+
+For pretty labels, we define two new labeller functions:
+
+```{r}
+ptev_val <- function(val) {
+  paste("I =", val)
+}
+
+gamma_val <- function(val) {
+  #expression(paste(gamma, "=", val))
+  paste("gamma =", val)
+}
+```
+
+
+```{r fig.width=7, fig.height=5}
+hsize <- hsize %>%
+  mutate(External = paste("I = ", I , ", C = ", C))
+
+ggplot(filter(hsize, I != 1),
+       aes(x=NumTraumatic, y=HippocampusDecrease, col = Trajectory)) +
+  geom_point(alpha=0.1, size=0.1, pch=21) +
+  #geom_density_2d() +
+  facet_grid( W ~ gamma, labeller=label_both) +
+  #scale_color_brewer(palette="Paired") +
+  scale_color_viridis(option = "plasma", discrete = T, end = 0.8) +
+  stat_summary(fun.data = mean_se, geom="point", size=1) +
+  geom_smooth(method = "lm", formula = y ~ x, col="black", fullrange= F) +
+  #geom_smooth(method = "lm", aes(fill=Condition), se=F) +
+  ylab("Percentage Decrease in Hippocampus Volume") +
+  xlab("Cumulative Number of Traumatic Memory Intrusions (Day 50-60)") +
+  ggtitle("Symptom Severity And Hippocampal Volume Decrease") +
+  theme_pander() +
+#  theme(legend.position = "bottom") +
+  theme(panel.background=element_rect(fill="NA", colour="black"))
+```
+
+By Trajectory
+
+```{r}
+hsize_trajectory <- a %>%
+  filter(Day > 49, I != 1) %>%
+  group_by(Run, I, C, R, W, gamma, Trajectory) %>%
+  dplyr::summarize(HippocampusDecrease = 100*(mean(MemoryEntropy)/H1 - 1),
+                   PTraumatic = mean(PTraumatic),
+                   CTraumatic = sum(CTraumatic),
+                   MeanSimilarity = mean(ChunkSimilarity))
+```
+
+And here is the corresponding plot:
+
+```{r, fig.width=6, fig.height=4.5}
+ggplot(hsize_trajectory, aes(x=Trajectory, y = HippocampusDecrease, 
+                             col=Trajectory, fill=Trajectory)) +
+  facet_wrap(~I, labeller = label_bquote(
+    rows = italic(I)[PTE] == .(I))) +
+  scale_fill_d3() +
+  scale_color_d3() +
+  stat_summary(geom="point", fun.data="mean_sdl") +
+  stat_summary(geom="errorbar", fun.data="mean_sdl", width=.25, 
+               fun.args = list(mult=1)) +
+  #geom_boxplot(width=.25, fill=NA) +
+  geom_violin(alpha=0.4, col="NA", trim = T, width  = 1.5) +
+  theme_pander() +
+  ylab("% Hippocampus Volume Decrease") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  theme(panel.background=element_rect(fill="NA", colour="black"),
+        legend.position = "bottom")
+```
+
+In general, largest decreases of hippocampus occur in the Chronic trajectory, and the smaller decreases in the resilient ones. But is a larger decrease inverse;y associated with the proportion of resilient trajectories?
+
+```{r}
+hsize_traj_prop <- hsize_trajectory %>%
+  mutate(IsResilient = ifelse(Trajectory=="Resilient", 1, 0)) %>%
+  group_by(I, C, R, W, gamma) %>%
+  summarise(HippocampusDecrease = mean(HippocampusDecrease),
+          PropResilient = mean(IsResilient),
+          LogVolume = log(100 + HippocampusDecrease))
+```
+
+Now, we can also replicate Briana's original analysis of the correlation between PTSD and symptoms, but coloring the points on the basis of teir trajectory.
+
+```{r}
+ggplot(filter(hsize_trajectory, I != 1),
+       aes(x=CTraumatic, y=HippocampusDecrease, col = Trajectory)) +
+  geom_point(alpha = .2, size=0.5) +
+  #geom_density_2d() +
+  scale_color_d3() + 
+  #scale_color_brewer(palette="Dark2") +
+  #scale_color_viridis(discrete=T, option="inferno", end=0.8) +
+  #stat_summary(fun.data = mean_se, geom="point", size=1) +
+  #geom_smooth(method = "lm", formula = y ~ x, aes(col=as.factor(I)), fill="white",
+  #            fullrange= T) + # theme_pander() +
+  geom_smooth(method = "lm", aes(fill=Trajectory), 
+              se=T, line_style="dashed") +
+  scale_fill_d3() + 
+  ylab("Percentage Decrease in Hippocampus Volume") +
+  xlab("Total Number of Memory Intrusions (Day 50-60)") +
+  ggtitle("Correlation Between Symptom Severity\nAnd Hippocampal Volume Decrease") +
+  theme_pander() +
+  theme(legend.position = "bottom") #+
+
+```
+
+<<<<<<< HEAD
+Finally, we can now visualize the data on the DK brain atlas for clarity.
+
+```{r, fig.width=8, fig.height=4}
+
+hsize_trajectory$Group = "PTSD"
+hsize_trajectory$Group[hsize_trajectory$Trajectory == "Resilient"] <- "Control"
+
+hpc_group <- hsize_trajectory %>%
+  group_by(Group, Trajectory) %>%
+  summarise(VolumeChange = mean(HippocampusDecrease),
+            SD = sd(HippocampusDecrease)) %>%
+  add_column(region = "parahippocampal") 
+
+hpc_group$Trajectory <- as.character(hpc_group$Trajectory)
+
+p1 <- hpc_group %>%
+  group_by(Group, Trajectory) %>%
+  ggplot(aes(fill = VolumeChange)) +
+  geom_brain(atlas = dk, 
+             col="white",
+             show.legend = T) +
+  coord_sf(xlim = c(750, 1050)) +
+  facet_wrap(~ Group + Trajectory, 
+             ncol=4,
+             labeller = label_bquote(
+               rows =  .(Group)~( .(Trajectory)))) +
+  scale_fill_viridis("Mean %\nVolume Change", 
+                     option = "plasma", 
+                     na.value="lightgrey",
+                     direction = 1,
+                     limits=c(-10.0, 0)
+                     ) +
+  theme_brain2(text.family = "sans",
+               text.colour="black") +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(size=10, face="bold"),
+        legend.position = "right",
+        legend.title = element_text(size=10))
+
+p2 <- ggplot(hsize_trajectory, 
+             aes(x = "",
+                 y = HippocampusDecrease)) +
+  geom_violin(aes(fill=Group), alpha=0.5, 
+              col="white", width=1.05, bw=2) +
+  scale_fill_npg() +
+  stat_summary(geom="point", fun.data="mean_sdl") +
+  facet_wrap(~ Group + Trajectory, ncol=4) +
+  
+  stat_summary(geom="errorbar", fun.data="mean_sdl", width=.1, 
+               fun.args = list(mult=1)) +
+  ylab("% Volume Change") +
+  xlab("") +
+  theme_minimal() +
+  theme(strip.text=element_blank())
+
+p1 / p2
+
+ggsave("figures/figure15.png", dpi=300)
+```
+
+### Comparisons
+
+Let's look at some raw data
+
+```{r}
+hsize_trajectory %>%
+  group_by(Group) %>%
+  summarise(VolumeChange = mean(HippocampusDecrease),
+            SD = sd(HippocampusDecrease)) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options=c("striped", "hover"))
+```
+
+As expected, the the difference between simulated control groups (Traumatized controls and Traumatized PTSD) is significant to a two-sided, unequal variance _t_-test.
+
+```{r}
+t.test(HippocampusDecrease ~ Group, 
+       hsize_trajectory, 
+       var.equal=F) %>%
+  tidy() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+Also, the the Control group shows a decrease of hippocampal volume that is small but significantly different than zero:
+
+```{r}
+
+t.test(filter(hsize_trajectory, Group == "Control")$HippocampusDecrease,
+       mean = 0) %>%
+  tidy() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+Finally, in the PTSD group, there is a significant difference by trajectories.
+
+```{r}
+traumatized_group_hsize <- hsize_trajectory %>%
+  filter(Group == "PTSD")
+
+traumatized_group_hsize %>%
+  aov(HippocampusDecrease ~ Trajectory, .)%>% 
+  summary() %>%
+  xtable() %>% 
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+A pairwise comparison indicates which trajectories are different:
+
+```{r}
+pairwise.t.test(traumatized_group_hsize$HippocampusDecrease, 
+                traumatized_group_hsize$Trajectory, 
+                p.adjust.method = "bonferroni", paired=F, pool.sd = F) %>%
+  tidy() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("stiped", "hover"))
+```
+## Functional Connectivity
+
+Functional conectivity is measured through the similarity between each retrieved chunk and the current context, which is recorded in the `ChunkSimilarity` variable. 
+
+We can quickly visualize the effects of different trajectories on connectivity.
+
+
+```{r}
+k <- a %>%
+  filter(! is.na(ChunkSimilarity),
+         C == 0,
+         Day > 50)
+
+ggplot(filter(k, I > 1), 
+       aes(x=Trajectory, y = ChunkSimilarity, 
+           col=Trajectory, fill=Trajectory)) +
+  stat_summary(fun.data=mean_se, geom="bar", alpha=0.5) +
+  stat_summary(fun.data=mean_cl_boot, geom="errorbar", width=0.25, size=1) +
+  facet_wrap(~I, ncol=3, 
+             labeller  = label_bquote(
+               rows = italic(I)[PTE] == .(I))) +
+  ylab("PFC - Hippocampus Connectivity") +
+  scale_color_d3() +
+  scale_fill_d3() +
+  theme_pander() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "bottom")
+```
+
+<<<<<<< HEAD
+### Visualizing Functional Connectivity
+
+And now, we can project the mean differences in connectivity onto the DK brain atlas. The analysis is performed by simulated patient group, symptomatic PTSD (the set of Recovery, Chronic, and Delayed trajectories) vs. asymptomatic traumatized group (Resilient trajectory).
+
+```{r, fig.width=8, fig.height=4}
+aconn <- a %>%
+  filter(! is.na(ChunkSimilarity),
+         C == 0,
+         I > 1,
+         Day > 50)
+
+aconn$Trajectory <- as.character(aconn$Trajectory)
+
+aconn$Group <- "PTSD"
+aconn$Group[aconn$Trajectory == "Resilient"] <- "Control"
+
+conn_group <- aconn %>%
+  group_by(Group, Trajectory) %>%
+  summarise(FC = mean(ChunkSimilarity),
+            SD = sd(ChunkSimilarity)) 
+
+conn1 <- conn_group %>%
+  add_column(region = "parahippocampal") 
+
+conn2 <- conn_group %>%
+  add_column(region = "medial orbitofrontal")
+
+conn_group <- rbind(conn1, conn2)
+
+p1 <- conn_group %>%
+  group_by(Group, Trajectory) %>%
+  ggplot(aes(fill = FC)) +
+  geom_brain(atlas = dk, 
+             col="white",
+             show.legend = T) +
+  coord_sf(xlim = c(750, 1050)) +
+  facet_wrap(~ Group + Trajectory, 
+             ncol=4,
+             labeller = label_bquote(
+               rows =  .(Group)~( .(Trajectory)))) +
+  scale_fill_viridis("Mean Functional\nConnectivity", 
+                     option = "plasma", 
+                     na.value="lightgrey",
+                     direction = 1,
+                     limits=c(0.0, 0.5)
+                     ) +
+  theme_brain2(text.family = "sans",
+               text.colour="black") +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(size=10, face="bold"),
+        legend.position = "right",
+        legend.title = element_text(size=10))
+
+p2 <- ggplot(aconn, 
+             aes(x = "",
+                 y = ChunkSimilarity)) +
+  geom_violin(aes(fill=Group), alpha=0.5, 
+              col="white", width=1.05,
+              bw=0.075) +
+  scale_fill_npg() +
+  stat_summary(geom="point", fun.data="mean_sdl") +
+  stat_summary(geom="errorbar", fun.data="mean_sdl", width=.1, 
+               fun.args = list(mult=1)) +
+  facet_wrap(~ Group + Trajectory, ncol=4) +
+  ylab("Functional Connectivity") +
+  xlab("") +
+  theme_minimal() +
+  theme(strip.text=element_blank())
+
+# Multi-plot
+p1 / p2
+
+ggsave("figures/figure16.png", dpi=300)
+```
+
+
+### Comparisons
+
+Let's look at the raw data and some descriptive statistics about predicted functional connectivity:
+
+```{r}
+conn_group %>%
+  filter(region == "parahippocampal") %>%
+  select(Group, Trajectory, FC, SD) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options=c("striped", "hover"))
+```
+
+As expected, the the difference between simulated control groups (Traumatized controls and Traumatized PTSD) is significant to a two-sided, unequal variance _t_-test.
+
+```{r}
+t.test(ChunkSimilarity ~ Group, 
+       aconn, 
+       var.equal=F) %>%
+  tidy() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+No difference between trajectories in the PTSD group
+
+```{r}
+traumatized_group_aconn <- aconn %>%
+  filter(Group != "Control")
+
+traumatized_group_aconn %>%  
+  aov(ChunkSimilarity ~ Trajectory, .) %>%
+  summary() %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options=c("striped", "hover"))
+```
+
+And the pairwise comparisons:
+
+```{r}
+pairwise.t.test(traumatized_group_aconn$ChunkSimilarity, 
+                traumatized_group_aconn$Trajectory, 
+                p.adjust.method = "bonferroni", paired=F, pool.sd = F) %>%
+  tidy() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
