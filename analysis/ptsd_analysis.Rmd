@@ -734,15 +734,15 @@ summary(IC_mod) %>%
 
 And here are the changes in trajectories.
 
-```{r fig.height=8, fig.width=5}
+```{r fig.height=6, fig.width=7}
 
 
 ggplot(data=IC_trajectories, aes(x="", y=N/100, fill=Trajectory)) +
   geom_bar(stat = "identity", col="grey", width=1) +
   #facet_grid(C~I, labeller = label_both) +
-  facet_grid(C~I, labeller = label_bquote(
-    rows = italic(C) == .(C),
-    cols = italic(I)[PTE] == .(I))) +
+  facet_grid(I~C, labeller = label_bquote(
+    cols = italic(C) == .(C),
+    rows = italic(I)[PTE] == .(I))) +
   coord_polar("y", start=0) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 2L)) +
   scale_fill_d3() +
