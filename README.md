@@ -214,3 +214,5 @@ desired parameters:
 The following publicatins are based on the model:
 
 * Smith, B. M., Chiu, M., Yang, Y. C., Sibert, C., & Stocco, A. (2020). Modeling the Effects of Post-Traumatic Stress on Hippocampal Volume. _Proceedings of the 18th International Conference on Cognitive Modeling_.
+
+* Smith, B. M., Thomasson, M., Yang, Y. C., Sibert, C., & Stocco, A. (2021). When Fear Shrinks the Brain: A Computational Model of the Effects of Posttraumatic Stress on Hippocampal Volume. _Topics in Cognitive Science_

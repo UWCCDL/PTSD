@@ -47,7 +47,7 @@ This is an analysis of the PTSD model "complete" simulations ("Simulation 3").
 
 ## Trajectories to simulate
 
-One of the goals of the model is to simulate therecovery trkjaectories in PTSD. The classic distinction is between four different trajectories, Resilient, Recovery, Chronic, and Delayed. These trajectories can be stylized as such
+One of the goals of the model is to simulate the recovery trajectories in PTSD. The classic distinction is between four different trajectories, Resilient, Recovery, Chronic, and Delayed. These trajectories can be stylized as such
 
 ```{r fig.width=6, fig.height=4}
 time <- -20:60
@@ -180,8 +180,7 @@ ggplot(ldf,
   theme_pander()
 ```
 
-<<<<<<< HEAD
-### Neuroiological interpretation
+### Neurological interpretation
 
 ```{r}
 brain_model <- tibble(
