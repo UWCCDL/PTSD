@@ -211,7 +211,7 @@ desired parameters:
 
 ## Publications
 
-The following publicatins are based on the model:
+The following publications are based on the model:
 
 * Smith, B. M., Chiu, M., Yang, Y. C., Sibert, C., & Stocco, A. (2020). Modeling the Effects of Post-Traumatic Stress on Hippocampal Volume. _Proceedings of the 18th International Conference on Cognitive Modeling_.
 
