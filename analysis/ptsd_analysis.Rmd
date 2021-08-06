@@ -1662,7 +1662,8 @@ if (CREATE_LOGLIKELIHOODS) {
 
   vals <- as_tibble(vals)
   names(vals) <- c("N", "Day", "I", "C", "W", "gamma", "Probability")
-  #Replace min probabilities with very small values 
+  
+  #Replace probabilities=0 with very small values 
   vals$Probability[vals$Probability == 0] <- 1e-50
   vals$LogLikelihood <- log(vals$Probability)
   write_tsv(vals, "loglikelihoods.tsv")
