@@ -7,8 +7,10 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(tidiverse)
-
+library(tidyverse)
+library(ggseg)
+library(ggseg3d)
+library(ggplot2)
 ```
 
 ## R Markdown
@@ -39,3 +41,10 @@ someData %>%
 
 Example visualization:
 
+```{r}
+p <- ggseg3d(atlas = "aseg_3d") %>% 
+  add_glassbrain(colour = "skyblue", opacity=0.5) %>% 
+  remove_axes() %>% 
+  pan_camera("right lateral")
+p
+```

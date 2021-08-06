@@ -192,27 +192,25 @@ brain_model <- tibble(
 
 #brain_model$component <- as_factor(brain_model$component)
 
-brain_model %>%
+# brain_model %>%
 #  group_by(component) %>%
-  ggplot(aes(fill = component)) +
-  geom_brain(atlas = dk, 
-             col="white",
-             show.legend = T
-             ) +
-  labs(fill="Model\nComponent") +
-  #scale_fill_lancet(na.value="lightgrey") +
-  scale_fill_manual(na.value="lightgrey", 
-                     values=c("dodgerblue2", "goldenrod1", "firebrick3", 
-                              "lightskyblue3", "lightskyblue3", "lightskyblue3"),
-                     breaks = brain_model$component) +
-  coord_sf(xlim = c(750, 1050)) +
-  theme_brain2(text.family = "sans",
-               text.colour="black") 
+  # ggplot(aes(fill = component)) +
+  # geom_brain(atlas = dk, 
+  #            col="white",
+  #            show.legend = T
+  #            ) +
+  # labs(fill="Model\nComponent") +
+  # #scale_fill_lancet(na.value="lightgrey") +
+  # scale_fill_manual(na.value="lightgrey", 
+  #                    values=c("dodgerblue2", "goldenrod1", "firebrick3", 
+  #                             "lightskyblue3", "lightskyblue3", "lightskyblue3"),
+  #                    breaks = brain_model$component) +
+  # coord_sf(xlim = c(750, 1050)) +
+  # theme_brain2(text.family = "sans",
+  #              text.colour="black") 
 
 ```
 
-=======
->>>>>>> 32668a1cf1bb305b84e9c0696be00ab05ea6ab15
 ## Event Distribution
 
 The model lives in a sumulated world in which memories are automatically retrived in response to changes in the environment. These changes, called _events_ occur probabilitistically, with Gamma distrib  a predermined frequen
@@ -1590,4 +1588,85 @@ pairwise.t.test(traumatized_group_aconn$ChunkSimilarity,
   tidy() %>%
   kable() %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+
+
+# Predictions
+
+```{r}
+
+intermediate <- a %>%
+  filter(Day > 0) %>%
+  filter(Day <= 20) %>%
+  filter(I != 1) %>%
+  mutate(Condition = paste("(", I, 
+                           ", ",  C, 
+                           ", ", W, ")", sep="")) %>%
+  group_by(Day, I, C, gamma, W, Condition)  %>%
+  summarise(Intrusions=mean(CTraumatic),
+            SDIntrusions=sd(CTraumatic),) 
+```
+
+```{r fig.width=10, fig.height=10}
+ggplot(intermediate, 
+       aes(x=Day, y=Intrusions, col=as.factor(gamma))) +
+  geom_point() +
+  ylim(0, 50) +
+  facet_wrap(~ Condition) + #label=label_both) +
+  geom_vline(data=props, aes(xintercept=-0.15)) +
+  theme_pander()
+```
+
+
+Now, let's build the probability table
+```{r}
+get_prob_by_day <- function(n, day, Intensity, Context, WM, gammaval) {
+    intermediate %>%
+    filter(Day == day,
+           W == WM,
+           I == Intensity,
+           C == Context,
+           gamma == gammaval) -> sub
+    m <- sub$Intrusions
+    sd <- sub$SDIntrusions
+    dnorm(n, m, sd)
+}
+
+CREATE_LOGLIKELIHOODS <- F
+
+if (CREATE_LOGLIKELIHOODS) {
+  vals <- NULL
+  for (n in 1:50) {
+    print(n)
+    for (d in 1:20) {
+      for (i in c(20, 40, 60)) {
+        for (c in c(0, 0.25, 0.5, 0.75)) {
+          for (w in c(4, 8, 12)) {
+            for (g in c(0.8, 0.9, 0.95)) {
+              p <- get_prob_by_day(n, d, i, c, w, g)
+              #print(p)
+              result <- c(n, d, i, c, w, g, p)
+              if (is.null(vals)) {
+                vals <- result
+              } else {
+                vals <- rbind(vals, result)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+
+  vals <- as_tibble(vals)
+  names(vals) <- c("N", "Day", "I", "C", "W", "gamma", "Probability")
+  #Replace min probabilities with very small values 
+  vals$Probability[vals$Probability == 0] <- 1e-50
+  vals$LogLikelihood <- log(vals$Probability)
+  write_tsv(vals, "loglikelihoods.tsv")
+} else {
+  vals <- read_tsv("loglikelihoods.tsv")
+}
 ```
