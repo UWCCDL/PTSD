@@ -244,6 +244,11 @@
    (traumatic-slot-values :accessor traumatic-slot-values
                           :initform   (subseq (reverse +letters+) 0 4))
 
+   ;; Adds flexibility by triggering functions
+
+   (special-events :accessor special-events
+                   :initform nil)
+
    )) ;; End of class definition
 
 
@@ -494,6 +499,12 @@
   (init s)
   (load "ptsd-model.lisp")
   ;;; Set hooks
+
+  ;; (let ((name (intern (symbol-name (gensym)))))
+  ;;   (setf (symbol-function name) #'(lambda (chunk)
+  ;;                                             (chunk-v-term s chunk))
+  ;;   (set-parameter-value :activation-offsets name))
+  
   (set-parameter-value :activation-offsets #'(lambda (chunk)
                                                (chunk-v-term s chunk)))
 
@@ -531,7 +542,7 @@
         (pte (* (num-days-before s)
                 +minutes-per-day+)))
 
-    (schedule-event (* 60 pte) #'present-new-event :params (list s))
+    (schedule-event (* 60 pte) 'present-new-event :params (list s))
     
     (let* ((q-params (event-params s))
            (q-shape (first q-params))
@@ -543,7 +554,7 @@
                                       :gamma-shape q-shape)))
       
       (dolist (j  (sanitize-timeline events pte))
-        (schedule-event (* 60 j) #'present-new-event :params (list s))))
+        (schedule-event (* 60 j) 'present-new-event :params (list s))))
 
     ;; Rumination (if any)
     (let* ((r-params (rumination-params s))
@@ -555,10 +566,17 @@
                                           :gamma-scale r-scale
                                           :gamma-shape r-shape)))
       (dolist (rt (sanitize-timeline rumination pte))
-        (schedule-event (* 60 rt) #'set-rumination-goal :params (list s))))
+        (schedule-event (* 60 rt) 'set-rumination-goal :params (list s))))
     
-    
-  
+
+    ;; Special events to add to the timeline
+    (dolist (event (special-events s))
+      (let ((event-time (first event))
+            (event-function (second event)))
+        (print (list event-time event-function))
+        (schedule-event event-time event-function :params (list s))))
+
+    ;; Run
     (run (* 60 +minutes-per-day+ (+ (num-days-before s)
                                     (num-days-after s))))
     
@@ -608,7 +626,8 @@
     (* (dm-entropy s) n)))    
 
 
-(defun change-gamma (sims)
+(defun lower-gamma (s)
   "Changes the value"
-  ())
-  
+  (let* ((old-gamma (gamma s))
+         (new-gamma (* 0.9 old-gamma)))
+    (setf (gamma s) new-gamma)))
