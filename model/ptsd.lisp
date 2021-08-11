@@ -589,9 +589,6 @@
 ;;  (simulate s))
 
 
-
-
-
 (defun dm-entropy (s)
   "Estimates the memory size as entropy * N"
   (let* ((ltm (no-output (sdm kind episode)))
@@ -609,3 +606,9 @@
   "Estimates HPC size from entropy"
   (let ((n (length (no-output (sdm kind episode)))))
     (* (dm-entropy s) n)))    
+
+
+(defun change-gamma (sims)
+  "Changes the value"
+  ())
+  
