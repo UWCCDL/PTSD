@@ -214,7 +214,7 @@ classify <- function(days) {
 }
 
 patterns <- a %>%
-  group_by(Run, W, gamma, SSRI) %>%
+  group_by(Run, gamma, SSRI) %>%
   dplyr::summarize(Trajectory = classify(PTraumatic))
 
 patterns <- patterns %>% ungroup
@@ -228,88 +228,27 @@ a$Trajectory <- factor(a$Trajectory,
                       levels = c("Recovery", "Delayed", "Resilient",  "Chronic"))
 ```
 
-## Chronic Probability of Traumatic Intrusions
-
-The other "behavioral" measure is the incidence of traumatic memory intrusions. As an aggregate measure, we will consider only the averages in the "Chronic" period, which we will be taking as indicative of long-term consequences of the PTSD.
-
-```{r}
-traumatic <- a %>%
-  filter(Day > 1) %>%
-  group_by(Run, gamma) %>%
-  dplyr::summarize(PTraumatic = mean(PTraumatic),
-            CTraumatic = sum(CTraumatic))
-```
-
-At this point, we can visualize the mean aggregated timecourse of intrusions for each trajectory.
-
-
-```{r, fig.width=5, fig.height=3.5}
-K = rev(brewer.pal(5, "Greys"))
-
-TOTAL <- 28800  # Param combos
-
-traj_total <- a %>%
-  filter(Day == 30) %>%
-  group_by(Trajectory) %>%
-  summarise(N = length(CTraumatic),
-            Prop = length(CTraumatic)/TOTAL,
-            MeanC = mean(CTraumatic))
-
-ggplot(filter(a, I != 1), 
-       aes(x=Day, y=CTraumatic, col=Trajectory, fill=Trajectory)) +
-  ggtitle("Memory Intrusions by Trajectory") +
-  #geom_vline(data=props, aes(xintercept=-0.5)) +
-  annotate("segment", x=-0, xend=-0,
-           y=-Inf, yend=Inf, col="black", lty=1, size=1) +
-  annotate("rect", xmin=50, xmax=60,
-           ymin=-Inf, ymax=Inf, fill=K[1], alpha=0.3)+
-  annotate("rect", xmin=1, xmax=10,
-           ymin=-Inf, ymax=Inf, fill=K[3], alpha=0.3)+
-  annotate("rect", xmin=-10, xmax=-1,
-           ymin=-Inf, ymax=Inf, fill=K[4], alpha=0.3)+
-  
-  annotate("text", x= -5.5, y=15, label="Base")+
-  annotate("text", x= 5.5, y=15, label="Acute")+
-  annotate("text", x= 55, y=15, label="Chronic")+
-  
-  geom_text(data=traj_total, aes(x= 30, y = MeanC, 
-                                 label=percent(Prop, accuracy = 0.1)),
-            vjust=-.5, show.legend=F) +
-  
-  stat_summary(fun.data = mean_se, geom="line") +
-  stat_summary(fun.data = mean_cl_normal, 
-               geom="ribbon", alpha = 0.25, col=NA) +
-  coord_cartesian(ylim=c(0, 5)) +
-  ylab("Total Number of Memory Intrusions") +
-  scale_color_d3() +
-  scale_fill_d3() +
-  theme_pander()
-```
 
 # Results
 
 Here we visualize the effects of SSRIs on the traumatic intrusions.
 
 ```{r}
-a$SSRI <- as_factor(a$SSRI)
-a$gamma <- as.character(a$gamma)
-a$gamma <- as_factor(a$gamma)
-a <- a %>%
-  filter(gamma %in% c("0.9", "0.95"))
+
 #a$gamma <- as_factor(a$gamma)
-ggplot(a, 
-       aes(x=Day, y=CTraumatic, fill=SSRI, col=SSRI)) +
+ggplot(data = a,
+       aes(x = Day, y = CTraumatic, fill = SSRI, col = SSRI)) +
   #geom_smooth(method="loess", span=0.2) +
   stat_summary(fun.data = mean_se, geom="line") +
   stat_summary(fun.data = mean_cl_normal, 
                geom="ribbon", alpha = 0.25, col=NA) +
   
-  facet_wrap(~gamma) + #label=label_both) +
+  facet_wrap(~ gamma) + 
   ggtitle("Effects of SSRI") +
   ylab("Number of Traumatic Memory Intrusions") +
   
-  geom_vline(data=props, aes(xintercept=-0.15)) +
-  geom_vline(data=props, aes(xintercept=9.5), col="grey") +
+  geom_vline(data=a, aes(xintercept=-0.15)) +
+  geom_vline(data=a, aes(xintercept=9.5), col="grey") +
   theme_pander()
 ```
 
