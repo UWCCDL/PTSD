@@ -1,0 +1,315 @@
+---
+title: "Joseph's Project"
+output:
+  html_document:
+    code_folding: hide
+    theme: yeti
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  word_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Hmisc)
+library(tidyverse)      # The foundation
+library(ggplot2)        # The foundatio for plots
+library(broom)          
+library(scales)
+library(ggthemes)       # Needs for theme_pander()
+library(ggrepel)        # Needed for labels in pie charts
+
+library(viridis)        # For color-blind graded scales (using plasma)
+library(ggsci)          # Modern discrete color palettes (D3, JAMA) 
+library(RColorBrewer)   # Custom scales (purple scale is used)
+
+library(kableExtra)     # Tables
+library(xtable)         # Tables
+
+library(gridExtra)      # Multi plot alignment
+library(patchwork)      # Multi-plot alignment
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loaading the data
+
+First, load the four data files containing the results:
+
+```{r}
+g90 <- read_csv("../simulations/simulations4/w=4_gamma=0.90_ptev=20_ptes_0.25_r=0_gamma.csv")
+g95 <- read_csv("../simulations/simulations4/w=4_gamma=0.95_ptev=20_ptes_0.25_r=0_gamma.csv")
+g90c <- read_csv("../simulations/simulations4/w=4_gamma=0.90_ptev=20_ptes_0.25_r=0_gamma_changed.csv")
+g95c <- read_csv("../simulations/simulations4/w=4_gamma=0.95_ptev=20_ptes_0.25_r=0_gamma_changed.csv")
+```
+
+In some of these simulations, gamma changes after the introduction of SSRI. let's create a new variable that records the initial value.
+
+```{r}
+g90$StartingGamma <- 0.9
+g95$StartingGamma <- 0.95
+g90c$StartingGamma <- 0.9
+g95c$StartingGamma <- 0.95
+```
+
+Now, let's create a second column/variable that records whether the simulation includes an SSRI-induced change of gamma or not (placebo). 
+
+```{r}
+notchange <- full_join(g90, g95)
+change <- full_join(g90c, g95c)
+notchange$SSRI <- FALSE
+change$SSRI <- TRUE
+```
+
+Finally, let;'s save the data into a single `simulations4.csv` data file.
+
+```{r}
+jdata <- full_join(change, notchange)
+write_csv(jdata, "../simulations/simulations4.csv")
+```
+
+# Aggregating the data
+
+The data so far is impractical to use, since it contains every event experienced by the model. We want to aggregate the events by day. If we have already done that, `CREATE_AGGREGATED` is False, and we can just load the already-created file.
+
+```{r load}
+CREATE_AGGREGAGATED = F
+
+if (CREATE_AGGREGAGATED) {
+  d <- read_csv("../simulations/simulations4.csv")
+  #d <- read_csv("simulations3.csv", col_types = cols())
+  d <- d %>%
+    mutate(Day = floor(Time / (60*60*24)) - 100,
+           Hour = floor((d$Time / 3600) %% 24),
+           RuminationFrequency=as_factor(RuminationFrequency))
+  names(d)[18] <- "W"
+  
+  d <- d %>% 
+    dplyr::select(Run, Day, PTEV, StartingGamma, PTES, W, 
+                  NumAttributes, RuminationFrequency, 
+                  MemoryEntropy, ChunkSimilarity, Traumatic, ChunkV, SSRI) %>%
+    filter(Day > -20)
+  
+  a <- d  %>%
+    group_by(Run, Day, PTEV, PTES, StartingGamma, 
+             NumAttributes, RuminationFrequency, W, SSRI) %>%
+    summarise(MemoryEntropy = mean(MemoryEntropy),
+              ChunkSimilarity = mean(ChunkSimilarity),
+              PTraumatic = mean(Traumatic),
+              CTraumatic = sum(Traumatic),
+              ChunkV = mean(ChunkV))
+  
+  write_csv(x=a, file = "../simulations/simulations4_aggregated.csv")
+}
+
+a <- read_csv(gzfile("../simulations/simulations4_aggregated.csv.gz"),
+              col_types = cols())
+```
+
+### Renaming the variable
+
+The data files record the variables with their old names, which are actually quite obscure. Let's rename them with the names used in the paper.
+
+```{r rename}
+a <- a %>%
+  rename(I = PTEV) %>%
+  rename(gamma = StartingGamma) %>%
+  rename(A = NumAttributes) %>%
+  rename(C = PTES) %>%
+  rename(R = RuminationFrequency)
+```
+
+
+## Recovery Trajectories
+
+To identify a recovery trajectory, we need to first define a classification function. Here, we are going to use the following algorithm:
+
+First the model calculates three average values:
+
+1. The mean probability _P(baseline)_ of retrieving intrusive memories in the 10 days 
+  preceding the PTE, or _baseline_ period. By definition, this is always zero.
+  
+2. The mean probability _P(acute)_ of retrieving intrusive memories in the 10 days 
+  following the PTE, or during the _acute_ period.
+  
+3. The mean probability _P(chronic)_ of retrieving intrusive memories in the last 
+  ten days of the second month after the PTE (i.e, days 51-60), or the _chronic_ 
+  period.
+  
+Then, the model calculates two statistical tests:
+
+1. A _t_-test between the baseline and acute period, or _acute test_; and 
+2. A _t_-test between the acute-period and the chronic period, or _chronic test_.
+
+And finally we apply the following decision tree:
+
+1. If the acute test is significant at p < .05 (Pacute > Pbaseline), then
+   
+   1.1. If the chronic test is also significant at _p_ < .05, and Pchronic > Pacute, 
+         we classify the trajectory as **Delayed**.
+
+   1.2. If the chronic test is significant at _p_ < .05 but 
+        _P(chronic)_ < _P(acute)_, then we classify the trajectory as **Recovery**;
+        
+   1.3. If the chronic test is non-significant, then _P(chronic)_ ~ _P(acute)_ , 
+        and we classify the trajectory as **Chronic**.
+
+2. If, instead, the acute test is not significant and _P(acute)_ ~ _P(baseline)_, 
+   then:
+   
+   2.1. If the chronic test is significant at _p_ < .05, then 
+        _P(chronic)_ > _P(acute)_, and we classify the trajectory as **Delayed**.
+   
+   2.2 If the chronic test is also not significant, then 
+       _P(chronic)_ ~ _P(baseline)_ ~ _P(acute)_, and we classify the trajectory
+       as **Resilient**.
+
+```{r classify}
+# Classifies people based on trajectory:
+# Chronic = 1
+# Recovery =2
+# Delay    =3
+# resilient= 4
+#
+classify <- function(days) {
+  g1 <- days[10:19]
+  g2 <- days[21:30]
+  g3 <- days[70:79]
+  t12 <- t.test(g1, g2)
+  t23 <- t.test(g2, g3)
+  category <- 0
+  if (!is.na(t12$p.value) & t12$p.value < 0.05) {
+    # t1 < t2
+    if (!is.na(t23$p.value) & t23$p.value < 0.05) {
+      # t2 <> t3
+
+      if (!is.na(t23$statistic) & t23$statistic > 0) {
+        # t1 < t2, t2 > 3
+        category <- "Recovery" #2  # Recovery
+      } else {
+        # t1 < t2, t2 < t3
+        category <- "Delayed" # 3 # Delayed
+      }
+    } else {
+      # t1 < t2, t2 = t3
+      category <- "Chronic" # 1 # Chronic
+    }
+  } else {
+    # t1 == t2
+    if (!is.na(t23$p.value) & t23$p.value < 0.05) {
+      # t1 == t2, t2 < t3
+      category <- "Delayed" #3 # Delayed
+    } else {
+      # t1 == t2, t2 = t3
+      category <- "Resilient" # 4 # Resilient
+    }
+  }
+  category
+}
+
+patterns <- a %>%
+  group_by(Run, W, gamma, SSRI) %>%
+  dplyr::summarize(Trajectory = classify(PTraumatic))
+
+patterns <- patterns %>% ungroup
+```
+
+Finally, let's assign each data point in the main averages with the corresponding trajectory, and re-order the trajectories in order of severity:
+
+```{r}
+a <- inner_join(a, patterns)
+a$Trajectory <- factor(a$Trajectory,
+                      levels = c("Recovery", "Delayed", "Resilient",  "Chronic"))
+```
+
+## Chronic Probability of Traumatic Intrusions
+
+The other "behavioral" measure is the incidence of traumatic memory intrusions. As an aggregate measure, we will consider only the averages in the "Chronic" period, which we will be taking as indicative of long-term consequences of the PTSD.
+
+```{r}
+traumatic <- a %>%
+  filter(Day > 1) %>%
+  group_by(Run, gamma) %>%
+  dplyr::summarize(PTraumatic = mean(PTraumatic),
+            CTraumatic = sum(CTraumatic))
+```
+
+At this point, we can visualize the mean aggregated timecourse of intrusions for each trajectory.
+
+
+```{r, fig.width=5, fig.height=3.5}
+K = rev(brewer.pal(5, "Greys"))
+
+TOTAL <- 28800  # Param combos
+
+traj_total <- a %>%
+  filter(Day == 30) %>%
+  group_by(Trajectory) %>%
+  summarise(N = length(CTraumatic),
+            Prop = length(CTraumatic)/TOTAL,
+            MeanC = mean(CTraumatic))
+
+ggplot(filter(a, I != 1), 
+       aes(x=Day, y=CTraumatic, col=Trajectory, fill=Trajectory)) +
+  ggtitle("Memory Intrusions by Trajectory") +
+  #geom_vline(data=props, aes(xintercept=-0.5)) +
+  annotate("segment", x=-0, xend=-0,
+           y=-Inf, yend=Inf, col="black", lty=1, size=1) +
+  annotate("rect", xmin=50, xmax=60,
+           ymin=-Inf, ymax=Inf, fill=K[1], alpha=0.3)+
+  annotate("rect", xmin=1, xmax=10,
+           ymin=-Inf, ymax=Inf, fill=K[3], alpha=0.3)+
+  annotate("rect", xmin=-10, xmax=-1,
+           ymin=-Inf, ymax=Inf, fill=K[4], alpha=0.3)+
+  
+  annotate("text", x= -5.5, y=15, label="Base")+
+  annotate("text", x= 5.5, y=15, label="Acute")+
+  annotate("text", x= 55, y=15, label="Chronic")+
+  
+  geom_text(data=traj_total, aes(x= 30, y = MeanC, 
+                                 label=percent(Prop, accuracy = 0.1)),
+            vjust=-.5, show.legend=F) +
+  
+  stat_summary(fun.data = mean_se, geom="line") +
+  stat_summary(fun.data = mean_cl_normal, 
+               geom="ribbon", alpha = 0.25, col=NA) +
+  coord_cartesian(ylim=c(0, 5)) +
+  ylab("Total Number of Memory Intrusions") +
+  scale_color_d3() +
+  scale_fill_d3() +
+  theme_pander()
+```
+
+# Results
+
+Here we visualize the effects of SSRIs on the traumatic intrusions.
+
+```{r}
+a$SSRI <- as_factor(a$SSRI)
+a$gamma <- as.character(a$gamma)
+a$gamma <- as_factor(a$gamma)
+a <- a %>%
+  filter(gamma %in% c("0.9", "0.95"))
+#a$gamma <- as_factor(a$gamma)
+ggplot(a, 
+       aes(x=Day, y=CTraumatic, fill=SSRI, col=SSRI)) +
+  #geom_smooth(method="loess", span=0.2) +
+  stat_summary(fun.data = mean_se, geom="line") +
+  stat_summary(fun.data = mean_cl_normal, 
+               geom="ribbon", alpha = 0.25, col=NA) +
+  
+  facet_wrap(~gamma) + #label=label_both) +
+  ggtitle("Effects of SSRI") +
+  ylab("Number of Traumatic Memory Intrusions") +
+  
+  geom_vline(data=props, aes(xintercept=-0.15)) +
+  geom_vline(data=props, aes(xintercept=9.5), col="grey") +
+  theme_pander()
+```
+
