@@ -1548,7 +1548,7 @@ Let's look at the raw data and some descriptive statistics about predicted funct
 ```{r}
 conn_group %>%
   filter(region == "parahippocampal") %>%
-  select(Group, Trajectory, FC, SD) %>%
+  dplyr::select(Group, Trajectory, FC, SD) %>%
   xtable() %>%
   kable() %>%
   kable_styling(bootstrap_options=c("striped", "hover"))
@@ -1620,6 +1620,7 @@ ggplot(intermediate,
 
 
 Now, let's build the probability table
+
 ```{r}
 get_prob_by_day <- function(n, day, Intensity, Context, WM, gammaval) {
     intermediate %>%
@@ -1645,7 +1646,6 @@ if (CREATE_LOGLIKELIHOODS) {
           for (w in c(4, 8, 12)) {
             for (g in c(0.8, 0.9, 0.95)) {
               p <- get_prob_by_day(n, d, i, c, w, g)
-              #print(p)
               result <- c(n, d, i, c, w, g, p)
               if (is.null(vals)) {
                 vals <- result
@@ -1670,4 +1670,40 @@ if (CREATE_LOGLIKELIHOODS) {
 } else {
   vals <- read_tsv("loglikelihoods.tsv")
 }
+```
+
+
+```{r}
+parameters_mle <- function(predicted) {
+  filtered <- vals
+  day = 1
+  for (n in predicted) {
+    filtered <- filtered %>%
+      filter(Day == day, N == n)
+    day <- day + 1
+  }
+  
+  likelihoods <- filtered %>%
+    group_by(I, C, W, gamma) %>%
+    summarise(LogLikelihood = sum(LogLikelihood))
+  
+  likelihoods
+  filter(likelihoods, LogLikelihood == max(likelihoods$LogLikelihood))
+}
+```
+
+
+Example run:
+
+```{r}
+test <- a %>% 
+  filter(Day > 0, Day <= 20) %>%
+  filter(W == 4,  
+         C == 0.25, 
+         gamma == 0.9, 
+         I == 20, 
+         R == 0, 
+         A == 4, 
+         Run == 5) %>% 
+  dplyr::select(CTraumatic)
 ```
