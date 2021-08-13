@@ -1706,4 +1706,5 @@ test <- a %>%
          A == 4, 
          Run == 5) %>% 
   dplyr::select(CTraumatic)
+parameters_mle(test)
 ```
