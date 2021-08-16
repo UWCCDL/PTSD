@@ -1634,11 +1634,11 @@ get_prob_by_day <- function(n, day, Intensity, Context, WM, gammaval) {
     dnorm(n, m, sd)
 }
 
-CREATE_LOGLIKELIHOODS <- F
+CREATE_LOGLIKELIHOODS <- T
 
 if (CREATE_LOGLIKELIHOODS) {
   vals <- NULL
-  for (n in 1:50) {
+  for (n in 0:50) {
     print(n)
     for (d in 1:20) {
       for (i in c(20, 40, 60)) {
@@ -1674,20 +1674,26 @@ if (CREATE_LOGLIKELIHOODS) {
 
 
 ```{r}
+k <- NULL
 parameters_mle <- function(predicted) {
-  filtered <- vals
-  day = 1
-  for (n in predicted) {
-    filtered <- filtered %>%
-      filter(Day == day, N == n)
+  filtered <- NULL
+  day <- 1
+  #print(predicted)
+  for (n in as_vector(predicted)) {
+    sub <- vals %>%
+      filter(Day == day,  N == n)
+    #print(c(day, n, dim(sub)))
+    if (is.null(filtered)) {
+      filtered <- sub
+    } else {
+      filtered <- rbind(filtered, sub)
+    }
     day <- day + 1
   }
-  
   likelihoods <- filtered %>%
     group_by(I, C, W, gamma) %>%
     summarise(LogLikelihood = sum(LogLikelihood))
-  
-  likelihoods
+  #filtered
   filter(likelihoods, LogLikelihood == max(likelihoods$LogLikelihood))
 }
 ```
@@ -1704,7 +1710,117 @@ test <- a %>%
          I == 20, 
          R == 0, 
          A == 4, 
-         Run == 5) %>% 
+         Run == 2) %>% 
   dplyr::select(CTraumatic)
 parameters_mle(test)
 ```
+
+Now let's analyze all the runs of the model, and create the predicted parameter values for each
+
+```{r}
+mle_prediction <- NULL
+
+CREATE_MLE <- F
+
+if (CREATE_MLE) {
+  options(dplyr.summarise.inform = FALSE)
+  a_sub <- a %>%
+    filter(Day > 0, Day <= 20, I > 1)
+  
+  
+  jj <- 1
+  
+  for (i in unique(a_sub$I)) {
+    for (c in unique(a_sub$C)) {
+      for (w in unique(a_sub$W)) {
+        for (g in unique(a_sub$gamma)) {
+          for (r in unique(a_sub$R)) {
+            for (att in unique(a_sub$A)) {
+              print(c(i, c, w, g, r, att))
+              for (j in unique(a_sub$Run)) {
+            
+                values <- a_sub %>%
+                  filter(W == w,  
+                         C == c, 
+                         gamma == g, 
+                         I == i, 
+                         R == r, 
+                         A == att, 
+                         Run == j) %>% 
+                  dplyr::select(CTraumatic)
+                prediction <- as_vector(parameters_mle(values))
+                
+                observed <- tibble(Parameters = c("I", "C", "W", "gamma"),
+                                   Type = "Observed",
+                                   Value = c(i, c, w, g),
+                                   LogLikelihood = prediction[5],
+                                   Run = jj)
+                
+                predicted  <- tibble(Parameters = c("I", "C", "W", "gamma"),
+                                     Type = "Prediction",
+                                     Value = prediction[1:4],
+                                     LogLikelihood = prediction[5],
+                                     Run = jj)
+                
+                set <- rbind(observed, predicted)
+                #print("Done")
+                
+                if (is.null(mle_prediction)) {
+                  mle_prediction <- set
+                } else {
+                  mle_prediction <- rbind(mle_prediction, set)
+                }
+                jj <- jj+1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  options(dplyr.summarise.inform = T)
+  write_csv(mle_prediction, "mle_predictions.csv")
+} else {
+  mle_predictions <- read_csv("mle_predictions.csv")
+}
+```
+
+
+```{r}
+
+mle_predictions <- mle_predictions %>%
+  group_by(Parameters) %>%
+  mutate(ScaledValue = Value / max(Value))
+
+wmle_predictions <- mle_predictions %>%
+  dplyr::select(-ScaledValue) %>%
+  pivot_wider(values_from = "Value", names_from = "Type")
+
+ggplot(wmle_predictions, aes(x=Prediction, y=Observed)) +
+  geom_count(alpha=.5) +
+  geom_smooth(method="lm", col="red") +
+  facet_wrap(~Parameters, scales="free") +
+  theme_pander()
+````
+
+```{r}
+wmle_predictions %>%
+  ungroup() %>%
+  mutate(Accuracy = if_else(Prediction == Observed, 1, 0)) %>%
+  group_by(Parameters) %>%
+  summarise(Accuracy = mean(Accuracy),
+            RMSE = sqrt(mean((Prediction - Observed)**2)),
+            Correlation = cor.test(Prediction, Observed)$estimate)
+```
+
+```{r}
+wmle_predictions %>%
+  ungroup() %>%
+  mutate(Accuracy = if_else(Prediction == Observed, 1, 0)) %>%
+  group_by(Parameters) %>%
+  summarise(Predicted = mean(Prediction),
+            Observed = mean(Observed),
+            PredictedSD = sd(Prediction),
+            ObservedSD = sd(Observed))
+```
+
