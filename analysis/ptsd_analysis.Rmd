@@ -1370,9 +1370,9 @@ p2 <- ggplot(hsize_trajectory,
   theme_minimal() +
   theme(strip.text=element_blank())
 
-p1 / p2
+#p1 / p2
 
-ggsave("figures/figure15.png", dpi=300)
+#ggsave("figures/figure15.png", dpi=300)
 ```
 
 ### Comparisons
@@ -1535,7 +1535,7 @@ p2 <- ggplot(aconn,
   theme(strip.text=element_blank())
 
 # Multi-plot
-p1 / p2
+#p1 / p2
 
 ggsave("figures/figure16.png", dpi=300)
 ```
@@ -1634,7 +1634,7 @@ get_prob_by_day <- function(n, day, Intensity, Context, WM, gammaval) {
     dnorm(n, m, sd)
 }
 
-CREATE_LOGLIKELIHOODS <- T
+CREATE_LOGLIKELIHOODS <- F
 
 if (CREATE_LOGLIKELIHOODS) {
   vals <- NULL
@@ -1801,7 +1801,7 @@ ggplot(wmle_predictions, aes(x=Prediction, y=Observed)) +
   geom_smooth(method="lm", col="red") +
   facet_wrap(~Parameters, scales="free") +
   theme_pander()
-````
+```
 
 ```{r}
 wmle_predictions %>%
@@ -1810,7 +1810,19 @@ wmle_predictions %>%
   group_by(Parameters) %>%
   summarise(Accuracy = mean(Accuracy),
             RMSE = sqrt(mean((Prediction - Observed)**2)),
-            Correlation = cor.test(Prediction, Observed)$estimate)
+            Correlation = cor.test(Prediction, Observed)$estimate) -> accuracies
+
+accuracies
+```
+
+```{r}
+accuracies$Chance = c(1/4, 1/3, 1/3, 1/3)
+
+ggplot(accuracies, aes(x=Parameters, y=Accuracy, col=Parameters)) +
+  facet_wrap(~Parameters, ncol=2, drop=TRUE, scales = "free_x") +
+  geom_col(col="lightgrey", fill="grey") +
+  geom_hline(aes(yintercept = Chance), linetype="dashed") +
+  theme_pander()
 ```
 
 ```{r}
