@@ -1823,6 +1823,9 @@ ggplot(accuracies, aes(x=Parameters, y=Accuracy, col=Parameters)) +
   geom_col(col="lightgrey", fill="grey") +
   geom_hline(aes(yintercept = Chance), linetype="dashed") +
   theme_pander()
+
+ggsave("alia.png")
+
 ```
 
 ```{r}
