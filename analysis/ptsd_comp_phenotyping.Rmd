@@ -1,0 +1,951 @@
+---
+title: "Analysis of PTSD Model Simulations"
+author: "Andrea Stocco"
+date: "2/7/2021"
+output:
+  html_document:
+    code_folding: hide
+    theme: yeti
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  word_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Hmisc)
+library(tidyverse)      # The foundation
+library(ggplot2)        # The foundatio for plots
+library(broom)          
+library(scales)
+library(ggthemes)       # Needs for theme_pander()
+library(ggrepel)        # Needed for labels in pie charts
+
+library(viridis)        # For color-blind graded scales (using plasma)
+library(ggsci)          # Modern discrete color palettes (D3, JAMA) 
+library(RColorBrewer)   # Custom scales (purple scale is used)
+
+library(kableExtra)     # Tables
+library(xtable)         # Tables
+
+library(gridExtra)      # Multi plot alignment
+library(patchwork)      # Multi-plot alignment
+
+library(ggseg)          # Brain visualization (standard DK atlas)
+
+```
+
+# Model and Simulations
+
+This is an analysis of the PTSD model "complete" simulations ("Simulation 3").
+
+## Trajectories to simulate
+
+One of the goals of the model is to simulate the recovery trajectories in PTSD. The classic distinction is between four different trajectories, Resilient, Recovery, Chronic, and Delayed. These trajectories can be stylized as such
+
+```{r fig.width=6, fig.height=4}
+time <- -20:60
+
+resilient <- rep(0, length(time))
+chronic <- tanh(time/2)
+delayed <- time**2 / max(time**2)
+#recovery <- chronic - delayed
+recovery <- chronic + ((60 - time)**2 / max(time**2)-1)
+#recovery <- recovery/max(recovery)
+
+resilient[time <= 0] <- 0
+chronic[time <= 0] <- 0
+delayed[time <= 0] <- 0
+recovery[time <= 0] <- 0
+
+wideal <- tibble(Day = time, 
+                Chronic = chronic,
+                Delayed = delayed,
+                Recovery = recovery,
+                Resilient = resilient)
+        
+ideal <- wideal %>%
+  pivot_longer(cols=c("Chronic", "Delayed", "Resilient", "Recovery"),
+               values_to = "CTraumatic",
+               names_to = "Trajectory")
+
+ideal$Trajectory <- factor(ideal$Trajectory,
+                           levels = c("Recovery", "Delayed", "Resilient",  "Chronic"))
+
+ggplot(ideal, 
+       aes(x=Day, 
+           y=CTraumatic, 
+           col=Trajectory, 
+           fill=Trajectory)) +
+  #geom_smooth(method="loess", span=0.2) +
+  geom_line(size=2, alpha=0.75) +
+  ggtitle("Theoretical Recovery Trajectories") +
+  ylab("Number of Memory Intrusions") +
+  geom_vline(data=tibble(), 
+             aes(xintercept=-0.35)) +
+  scale_color_d3() +
+  theme_pander()  +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+```
+
+## Underlying memory model
+
+The underlying memory model is John Anderson's ACT-R. 
+
+```{r fig.width=6, fig.height=6}
+# Simulate ACT-R
+
+decay <- function(time, t0=0, rate=.5) {
+    if (time <= t0) {
+      NA
+    } else {
+      (time - t0)**(-rate)
+    }
+}
+
+vdecay <- Vectorize(decay)
+
+time <- seq(1, 100, 1)
+
+t1 = vdecay(time, t0=1)
+t2 = vdecay(time, t0=20)
+t3 = vdecay(time, t0=55)
+t4 = vdecay(time, t0=65)
+
+
+df <-data.frame(Time=time, 
+           trace1 = vdecay(time, t0=1),
+           trace2 = vdecay(time, t0=20),
+           trace3 = vdecay(time, t0=55),
+           trace4 = vdecay(time, t0=65))
+
+
+ldf <- df %>%
+  # mutate(Total = if_else(is.na(trace1), 0, trace1) +
+  #          if_else(is.na(trace2), 0, trace2) +
+  #          if_else(is.na(trace3), 0, trace3) +
+  #          if_else(is.na(trace4), 0, trace4))  %>%
+  pivot_longer(cols = c("trace1", "trace2", "trace3", "trace4"),
+               names_to = "Trace", values_to="Activation")
+
+ldf$Trace <- fct_recode(ldf$Trace, 
+                        "Trace 1" = "trace1",
+                        "Trace 2" = "trace2",
+                        "Trace 3" = "trace3",
+                        "Trace 4" = "trace4")
+
+ldf <- ldf %>%
+  add_column(Source="Individual Traces")
+
+t1[is.na(t1)] <-0
+t2[is.na(t2)] <-0
+t3[is.na(t3)] <-0
+t4[is.na(t4)] <-0
+total <- log(t1+t2+t3+t4)
+
+totaldf <- tibble(Time=time, 
+                  Activation = total,
+                  Trace = "Memory",
+                  Source="Memory")
+
+ldf <- rbind(ldf, totaldf)
+
+ldf$Source <- factor(ldf$Source, levels = c("Memory", "Individual Traces"))
+
+ggplot(ldf, 
+       aes(x=Time, y=Activation, col=Trace)) +
+  geom_line(size=1,
+            alpha=1) +
+            #linetype="dashed") +
+  # stat_summary(geom="line", fun = sum, 
+  #              col="black", 
+  #              alpha=0.5,
+  #              position = position_dodge()) +
+  # #scale_y_log10() +
+  facet_wrap(~ Source, ncol=1,
+             scales = "free_y") +
+  #ylim(0, 1.6) +
+  #ylab(expression(paste("Availability of Memory ", italic(m))))+
+  ylab("Activation") +
+  scale_color_viridis("", option="plasma", discrete=T, end = .8, direction=-1) +
+  theme_pander()
+```
+
+### Neurological interpretation
+
+```{r}
+brain_model <- tibble(
+  region = c("parahippocampal", "entorhinal", "medial orbitofrontal",
+             "superior frontal", "paracentral", "precuneus"),
+  component = c("LTM", "Emotional Intensity", "Retrieval Control",
+                "Context", "Context", "Context")
+)
+
+#brain_model$component <- as_factor(brain_model$component)
+
+# brain_model %>%
+#  group_by(component) %>%
+  # ggplot(aes(fill = component)) +
+  # geom_brain(atlas = dk, 
+  #            col="white",
+  #            show.legend = T
+  #            ) +
+  # labs(fill="Model\nComponent") +
+  # #scale_fill_lancet(na.value="lightgrey") +
+  # scale_fill_manual(na.value="lightgrey", 
+  #                    values=c("dodgerblue2", "goldenrod1", "firebrick3", 
+  #                             "lightskyblue3", "lightskyblue3", "lightskyblue3"),
+  #                    breaks = brain_model$component) +
+  # coord_sf(xlim = c(750, 1050)) +
+  # theme_brain2(text.family = "sans",
+  #              text.colour="black") 
+
+```
+
+## Event Distribution
+
+The model lives in a sumulated world in which memories are automatically retrived in response to changes in the environment. These changes, called _events_ occur probabilitistically, with Gamma distrib  a predermined frequen
+
+The distribution of Gamma events is this:
+
+* Frequency: 2.1, 175 (shape, scale)
+* Rumination, 6, 100
+
+```{r}
+t <- 0:(24*60)
+E <- dgamma(t, shape=2.1, rate=1/175)
+R <- dgamma(t, shape=6, rate=1/100)
+
+dists <- data.frame(Time=t, Events = E, Rumination = R) %>%
+  pivot_longer(names_to = "Type", 
+               values_to = "Probability",
+               cols=c("Events", "Rumination"))
+
+ggplot(dists, aes(x=Time, y=Probability, col=Type, fill=Type)) +
+  geom_line() +
+  geom_ribbon(data=dists, aes(x=Time, ymax=Probability, ymin=0), alpha=0.25) +
+  scale_x_continuous(breaks=60*c(0, 4, 8, 12, 16, 20),
+                     limits=c(0, 24*60),
+                     labels=c("8:00am", 
+                              "12:00pm",
+                              "4:00pm",
+                              "8:00pm",
+                              "12:00am",
+                              "4:00am")) +
+  scale_color_aaas() +
+  scale_fill_aaas() +
+  ggtitle("Probability of Retrievals During the Day") +
+  theme_pander()
+```
+
+# Load and Transform the Data
+
+First, we are going to load the "aggregated" version of the simulations, with 
+the events already aggregated by day. 
+
+```{r load}
+CREATE_AGGREGAGATED = F
+
+if (CREATE_AGGREGAGATED) {
+  d <- read_csv("../simulations/simulations3.csv")
+  #d <- read_csv("simulations3.csv", col_types = cols())
+  d <- d %>%
+    mutate(Day = floor(Time / (60*60*24)) - 100,
+           Hour = floor((d$Time / 3600) %% 24),
+           RuminationFrequency=as_factor(RuminationFrequency))
+  names(d)[18] <- "W"
+  
+  d <- d %>% 
+    dplyr::select(Run, Day, PTEV, Gamma, PTES, W, 
+                  NumAttributes, RuminationFrequency, 
+                  MemoryEntropy, ChunkSimilarity, Traumatic, ChunkV) %>%
+    filter(Day > -20)
+  
+  a <- d  %>%
+    group_by(Run, Day, PTEV, PTES, Gamma, 
+             NumAttributes, RuminationFrequency, W) %>%
+    summarise(MemoryEntropy = mean(MemoryEntropy),
+              ChunkSimilarity = mean(ChunkSimilarity),
+              PTraumatic = mean(Traumatic),
+              CTraumatic = sum(Traumatic),
+              ChunkV = mean(ChunkV))
+  
+  write_csv(x=a, file = "../simulations/simulations3_aggregated2.csv")
+}
+
+a <- read_csv(gzfile("../simulations/simulations3_aggregated2.csv.gz"),
+              col_types = cols())
+```
+
+Then, we are going to rename the simulation variables to make them consistent with
+the names used in published papers:
+
+```{r rename}
+a <- a %>%
+  rename(I = PTEV) %>%
+  rename(gamma = Gamma) %>%
+  rename(A = NumAttributes) %>%
+  rename(C = PTES) %>%
+  rename(R = RuminationFrequency)
+```
+
+
+## Recovery Trajectories
+
+To identify a recovery trajectory, we need to first define a classification function. Here, we are going to use the following algorithm:
+
+First the model calculates three average values:
+
+1. The mean probability _P(baseline)_ of retrieving intrusive memories in the 10 days 
+  preceding the PTE, or _baseline_ period. By definition, this is always zero.
+  
+2. The mean probability _P(acute)_ of retrieving intrusive memories in the 10 days 
+  following the PTE, or during the _acute_ period.
+  
+3. The mean probability _P(chronic)_ of retrieving intrusive memories in the last 
+  ten days of the second month after the PTE (i.e, days 51-60), or the _chronic_ 
+  period.
+  
+Then, the model calculates two statistical tests:
+
+1. A _t_-test between the baseline and acute period, or _acute test_; and 
+2. A _t_-test between the acute-period and the chronic period, or _chronic test_.
+
+And finally we apply the following decision tree:
+
+1. If the acute test is significant at p < .05 (Pacute > Pbaseline), then
+   
+   1.1. If the chronic test is also significant at _p_ < .05, and Pchronic > Pacute, 
+         we classify the trajectory as **Delayed**.
+
+   1.2. If the chronic test is significant at _p_ < .05 but 
+        _P(chronic)_ < _P(acute)_, then we classify the trajectory as **Recovery**;
+        
+   1.3. If the chronic test is non-significant, then _P(chronic)_ ~ _P(acute)_ , 
+        and we classify the trajectory as **Chronic**.
+
+2. If, instead, the acute test is not significant and _P(acute)_ ~ _P(baseline)_, 
+   then:
+   
+   2.1. If the chronic test is significant at _p_ < .05, then 
+        _P(chronic)_ > _P(acute)_, and we classify the trajectory as **Delayed**.
+   
+   2.2 If the chronic test is also not significant, then 
+       _P(chronic)_ ~ _P(baseline)_ ~ _P(acute)_, and we classify the trajectory
+       as **Resilient**.
+
+```{r classify}
+# Classifies people based on trajectory:
+# Chronic = 1
+# Recovery =2
+# Delay    =3
+# resilient= 4
+#
+classify <- function(days) {
+  g1 <- days[10:19]
+  g2 <- days[21:30]
+  g3 <- days[70:79]
+  t12 <- t.test(g1, g2)
+  t23 <- t.test(g2, g3)
+  category <- 0
+  if (!is.na(t12$p.value) & t12$p.value < 0.05) {
+    # t1 < t2
+    if (!is.na(t23$p.value) & t23$p.value < 0.05) {
+      # t2 <> t3
+
+      if (!is.na(t23$statistic) & t23$statistic > 0) {
+        # t1 < t2, t2 > 3
+        category <- "Recovery" #2  # Recovery
+      } else {
+        # t1 < t2, t2 < t3
+        category <- "Delayed" # 3 # Delayed
+      }
+    } else {
+      # t1 < t2, t2 = t3
+      category <- "Chronic" # 1 # Chronic
+    }
+  } else {
+    # t1 == t2
+    if (!is.na(t23$p.value) & t23$p.value < 0.05) {
+      # t1 == t2, t2 < t3
+      category <- "Delayed" #3 # Delayed
+    } else {
+      # t1 == t2, t2 = t3
+      category <- "Resilient" # 4 # Resilient
+    }
+  }
+  category
+}
+
+patterns <- a %>%
+  group_by(Run, I, C, A, R, W, gamma) %>%
+  dplyr::summarize(Trajectory = classify(PTraumatic))
+
+patterns <- patterns %>% ungroup
+```
+
+Finally, let's assign each data point in the main averages with the corresponding trajectory, and re-order the trajectories in order of severity:
+
+```{r}
+a <- inner_join(a, patterns)
+a$Trajectory <- factor(a$Trajectory,
+                      levels = c("Recovery", "Delayed", "Resilient",  "Chronic"))
+```
+## Chronic Probability of Traumatic Intrusions
+
+The other "behavioral" measure is the incidence of traumatic memory intrusions. As an aggregate measure, we will consider only the averages in the "Chronic" period, which we will be taking as indicative of long-term consequences of the PTSD.
+
+```{r}
+traumatic <- a %>%
+  filter(Day > 1) %>%
+  group_by(Run, I, C, R, W, gamma) %>%
+  dplyr::summarize(PTraumatic = mean(PTraumatic),
+            CTraumatic = sum(CTraumatic))
+```
+
+At this point, we can visualize the mean aggregated timecourse of intrusions for each trajectory.
+
+
+```{r, fig.width=5, fig.height=3.5}
+K = rev(brewer.pal(5, "Greys"))
+
+TOTAL <- 28800  # Param combos
+
+traj_total <- a %>%
+  filter(Day == 30) %>%
+  group_by(Trajectory) %>%
+  summarise(N = length(CTraumatic),
+            Prop = length(CTraumatic)/TOTAL,
+            MeanC = mean(CTraumatic))
+
+ggplot(filter(a, I != 1), 
+       aes(x=Day, y=CTraumatic, col=Trajectory, fill=Trajectory)) +
+  ggtitle("Memory Intrusions by Trajectory") +
+  #geom_vline(data=props, aes(xintercept=-0.5)) +
+  annotate("segment", x=-0, xend=-0,
+           y=-Inf, yend=Inf, col="black", lty=1, size=1) +
+  annotate("rect", xmin=50, xmax=60,
+           ymin=-Inf, ymax=Inf, fill=K[1], alpha=0.3)+
+  annotate("rect", xmin=1, xmax=10,
+           ymin=-Inf, ymax=Inf, fill=K[3], alpha=0.3)+
+  annotate("rect", xmin=-10, xmax=-1,
+           ymin=-Inf, ymax=Inf, fill=K[4], alpha=0.3)+
+  
+  annotate("text", x= -5.5, y=15, label="Base")+
+  annotate("text", x= 5.5, y=15, label="Acute")+
+  annotate("text", x= 55, y=15, label="Chronic")+
+  
+  geom_text(data=traj_total, aes(x= 30, y = MeanC, 
+                                 label=percent(Prop, accuracy = 0.1)),
+            vjust=-.5, show.legend=F) +
+  
+  stat_summary(fun.data = mean_se, geom="line") +
+  stat_summary(fun.data = mean_cl_normal, 
+               geom="ribbon", alpha = 0.25, col=NA) +
+  coord_cartesian(ylim=c(0, 15)) +
+  ylab("Total Number of Memory Intrusions") +
+  scale_color_d3() +
+  scale_fill_d3() +
+  theme_pander()
+
+ggsave("figures/figure6.png", dpi = 300)
+```
+
+The results indicate that our classification was correct; the trajectories behave as planned.
+
+## Finding a baseline to compare the model to existing literature
+
+Since we have no idea how typical the model parameters are of the existing patients and their cases, we need to provide some sort of baselines. To do so, we will use the proportion of trajectories that were given by Galatzer-Levy and Bonanno in their meta-analysis. They are:
+
+* Resilient, 0.657
+* Recovery, 0.208 
+* Chronic, 0.106
+* Delayed, 0.089
+
+
+Note that they do not normalize to one, due to the lack of some trajectories in some studies. To use them, we will need to make sure to normalized them first, which can be done at time of testing.
+
+```{r}
+T_observed <- c(0.657, 0.208, 0.106, 0.089)
+names(T_observed) <- c("Resilient", "Recovery", "Chronic", "Delayed")
+```
+
+We can now plot the percentages and the patterns by trajectory:
+
+```{r}
+props <- patterns %>%
+  group_by(Trajectory, 
+           I, 
+           gamma, 
+           C, 
+           W,
+           R,
+           #A,
+           ) %>%
+  dplyr::summarize(N = length(Trajectory)) %>%
+  dplyr::mutate(Prop = N/50)
+
+props %>%
+  pivot_wider(id_cols=c(I, 
+                        gamma, 
+                        C,
+                        W,
+                        R,
+                        #A,
+                        ), 
+              names_from = Trajectory,
+              values_from = N,
+              values_fill=0) -> test
+
+mychi <- function(vals) {
+  chisq.test(vals, 
+             p=T_observed, 
+             rescale.p=T)$statistic
+}
+
+mycorr <- function(vals) {
+  cor(vals, T_observed)
+}
+
+myrmse <- function(vals) {
+  v <- 50 * (T_observed/sum(T_observed))
+  sqrt(mean((vals - v)^2))
+}
+
+
+lprops <- test %>%
+  pivot_longer(cols=c("Resilient", "Recovery", "Chronic", "Delayed"),
+               names_to = "Trajectory",
+               values_to = "N")
+
+lprops$Trajectory <- factor(lprops$Trajectory,
+                      levels = c("Recovery", "Delayed", "Resilient",  "Chronic"))
+
+# Suppresses X-squared approximation warnings
+old.warn <- options()$warn
+options(warn = -1)
+
+atest <- lprops %>%
+  group_by(I, 
+           gamma, 
+           C, 
+           W,
+           R,
+           #A,
+           ) %>%
+  summarise(Chi = mychi(N), r=mycorr(N), RMSE=myrmse(N))
+
+# resets warnings
+options(warn = old.warn)
+
+test <- inner_join(test, atest)
+```
+
+Now, we can identfy the baseline as the condition with the minimum $\chi^2$-squared test (or the minimum RMSE, they are the same)
+
+This shows how correlation coefficient and $\chi^2$ are related, while the RMSE does not really capture either of them:
+
+```{r}
+ggplot(test, aes(x=Chi, y=r, col=RMSE)) + 
+  geom_point(size=4, alpha=0.5) + 
+  scale_color_viridis(option="plasma")+
+  ylab(expression(italic(r))) +
+  xlab(expression(chi^2)) +
+  ggtitle("Relationship between Error Measures in Trajectories") +
+  theme_pander()
+```
+
+Now, let's identify a "baseline" condition---the one that most resembles the distribution of trajectories identified by Galatzer-Levy. 
+
+```{r}
+baseline <- test %>%
+  filter(Chi == min(test$Chi))
+
+baseline %>%
+  kable(digits=3) %>%
+  kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+
+And here is a visual representation of the four trajectories at that baseline (smoothed, because there is too much day-to-day variance in this small sample).
+
+```{r fig.width=5, fig.height=3.5}
+baseline_a <- a %>%
+  filter(I == baseline$I,
+         W == baseline$W,
+         C == baseline$C,
+         R == baseline$R,
+         gamma == baseline$gamma,
+         )
+
+base_total <- baseline_a %>%
+  filter(Day == 15) %>%
+  group_by(Trajectory) %>%
+  summarise(N = length(CTraumatic),
+            Prop = length(CTraumatic)/100,
+            MeanC = mean(CTraumatic))
+
+         
+ggplot(baseline_a, 
+       aes(x=Day, y=CTraumatic, col=Trajectory, fill=Trajectory)) +
+  geom_smooth(method="loess", span=0.2) +
+  ggtitle("Trajectories for Best-Fitting Parameters") +
+  scale_color_d3() +
+  geom_text(data=base_total, aes(x= c(25, 10, 20, 10), y = MeanC, 
+                                 label=percent(Prop, accuracy = 0.1)),
+            vjust=-.5, show.legend=F) +
+  ylab("Total Number of Memory Intrusions") +
+  geom_vline(data=props, aes(xintercept=-0.25)) +
+  scale_fill_d3() +
+  theme_pander() 
+
+ggsave("figures/figure7.png", dpi=300)
+```
+
+The Chonic and Delayed trajectories, being the least common, exhibit significant ups and downs, hence the need for Loess smoothing. Nonetheless, the trajectories remain visible and clearly identifiable.
+
+But how good is the baseline condition, in terms of being closed to Galatzer-Levy's estimated pooled values? We can just examine the significance of the $\chi^2$ test.
+
+```{r}
+baseline_vals <- baseline[c("Resilient", "Recovery", "Chronic", "Delayed")]
+chi <- chisq.test(baseline_vals, p=T_observed, rescale.p = T)
+```
+
+The result is not too bad---A bit dissimilar, but not too far either, and not statistically significant ($\chi^2$ = `r round(chi$statistic, 6)`, _p_ = `r round(chi$p.value, 6)`)).
+
+The main difference is that the delayed onset trajectory has a higher proportion than in the review. However, Galatzer-Levy and Bonanno themselves note that the resilient (M= 0.66) delayed onset trajectories (M = 0.099) has a higher prevalence in studies of single-point event. If these corrected prevalences are taken into account, the chi squared reduces further.
+
+
+# Predictions
+
+```{r}
+
+intermediate <- a %>%
+  filter(Day > 0) %>%
+  filter(Day <= 20) %>%
+  filter(I != 1) %>%
+  mutate(Condition = paste("(", I, 
+                           ", ",  C, 
+                           ", ", W, ")", sep="")) %>%
+  group_by(Day, I, C, gamma, W, Condition)  %>%
+  summarise(Intrusions=mean(CTraumatic),
+            SDIntrusions=sd(CTraumatic),) 
+```
+
+```{r fig.width=10, fig.height=10}
+ggplot(intermediate, 
+       aes(x=Day, y=Intrusions, col=as.factor(gamma))) +
+  geom_point() +
+  ylim(0, 50) +
+  facet_wrap(~ Condition) + #label=label_both) +
+  geom_vline(data=props, aes(xintercept=-0.15)) +
+  theme_pander()
+```
+
+
+Now, let's build the probability table
+
+```{r}
+get_prob_by_day <- function(n, day, Intensity, Context, WM, gammaval) {
+    intermediate %>%
+    filter(Day == day,
+           W == WM,
+           I == Intensity,
+           C == Context,
+           gamma == gammaval) -> sub
+    m <- sub$Intrusions
+    sd <- sub$SDIntrusions
+    dnorm(n, m, sd)
+}
+
+CREATE_LOGLIKELIHOODS <- F
+
+if (CREATE_LOGLIKELIHOODS) {
+  vals <- NULL
+  for (n in 0:50) {
+    print(n)
+    for (d in 1:20) {
+      for (i in c(20, 40, 60)) {
+        for (c in c(0, 0.25, 0.5, 0.75)) {
+          for (w in c(4, 8, 12)) {
+            for (g in c(0.8, 0.9, 0.95)) {
+              p <- get_prob_by_day(n, d, i, c, w, g)
+              result <- c(n, d, i, c, w, g, p)
+              if (is.null(vals)) {
+                vals <- result
+              } else {
+                vals <- rbind(vals, result)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+
+  vals <- as_tibble(vals)
+  names(vals) <- c("N", "Day", "I", "C", "W", "gamma", "Probability")
+  
+  #Replace probabilities=0 with very small values 
+  vals$Probability[vals$Probability == 0] <- 1e-50
+  vals$LogLikelihood <- log(vals$Probability)
+  write_tsv(vals, "loglikelihoods.tsv")
+} else {
+  vals <- read_tsv("loglikelihoods.tsv")
+}
+```
+
+
+```{r}
+k <- NULL
+parameters_mle <- function(predicted) {
+  filtered <- NULL
+  day <- 1
+  #print(predicted)
+  for (n in as_vector(predicted)) {
+    sub <- vals %>%
+      filter(Day == day,  N == n)
+    #print(c(day, n, dim(sub)))
+    if (is.null(filtered)) {
+      filtered <- sub
+    } else {
+      filtered <- rbind(filtered, sub)
+    }
+    day <- day + 1
+  }
+  likelihoods <- filtered %>%
+    group_by(I, C, W, gamma) %>%
+    summarise(LogLikelihood = sum(LogLikelihood))
+  #filtered
+  filter(likelihoods, LogLikelihood == max(likelihoods$LogLikelihood))
+}
+```
+
+
+Example run:
+
+```{r}
+test <- a %>% 
+  filter(Day > 0, Day <= 20) %>%
+  filter(W == 4,  
+         C == 0.25, 
+         gamma == 0.9, 
+         I == 20, 
+         R == 0, 
+         A == 4, 
+         Run == 2) %>% 
+  dplyr::select(CTraumatic)
+parameters_mle(test)
+```
+
+Now let's analyze all the runs of the model, and create the predicted parameter values for each
+
+```{r}
+mle_prediction <- NULL
+
+CREATE_MLE <- F
+
+if (CREATE_MLE) {
+  options(dplyr.summarise.inform = FALSE)
+  a_sub <- a %>%
+    filter(Day > 0, Day <= 20, I > 1)
+  
+  
+  jj <- 1
+  
+  for (i in unique(a_sub$I)) {
+    for (c in unique(a_sub$C)) {
+      for (w in unique(a_sub$W)) {
+        for (g in unique(a_sub$gamma)) {
+          for (r in unique(a_sub$R)) {
+            for (att in unique(a_sub$A)) {
+              print(c(i, c, w, g, r, att))
+              for (j in unique(a_sub$Run)) {
+            
+                values <- a_sub %>%
+                  filter(W == w,  
+                         C == c, 
+                         gamma == g, 
+                         I == i, 
+                         R == r, 
+                         A == att, 
+                         Run == j) %>% 
+                  dplyr::select(CTraumatic)
+                prediction <- as_vector(parameters_mle(values))
+                
+                observed <- tibble(Parameters = c("I", "C", "W", "gamma"),
+                                   Type = "Observed",
+                                   Value = c(i, c, w, g),
+                                   LogLikelihood = prediction[5],
+                                   Run = jj)
+                
+                predicted  <- tibble(Parameters = c("I", "C", "W", "gamma"),
+                                     Type = "Prediction",
+                                     Value = prediction[1:4],
+                                     LogLikelihood = prediction[5],
+                                     Run = jj)
+                
+                set <- rbind(observed, predicted)
+                #print("Done")
+                
+                if (is.null(mle_prediction)) {
+                  mle_prediction <- set
+                } else {
+                  mle_prediction <- rbind(mle_prediction, set)
+                }
+                jj <- jj+1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  options(dplyr.summarise.inform = T)
+  write_csv(mle_prediction, "mle_predictions.csv")
+} else {
+  mle_predictions <- read_csv("mle_predictions.csv")
+}
+```
+
+
+```{r}
+
+mle_predictions <- mle_predictions %>%
+  group_by(Parameters) %>%
+  mutate(ScaledValue = Value / max(Value))
+
+wmle_predictions <- mle_predictions %>%
+  dplyr::select(-ScaledValue) %>%
+  pivot_wider(values_from = "Value", names_from = "Type")
+
+ggplot(wmle_predictions, aes(x=Prediction, y=Observed)) +
+  geom_count(alpha=.5) +
+  geom_smooth(method="lm", col="red") +
+  facet_wrap(~Parameters, scales="free") +
+  theme_pander()
+
+```
+
+```{r}
+newbackpred <- wmle_predictions %>%
+  mutate(SObserved = as.character(Observed),
+         SPredicted = as.character(Prediction)) %>%
+  ungroup() %>%
+  group_by(Parameters, SObserved, SPredicted) %>%
+  summarise(Count = length(Run)) %>%
+  ungroup() %>%
+  group_by(Parameters, SObserved) %>%
+  mutate(Percent = Count / sum(Count))
+  
+
+ggplot(newbackpred, aes(x=SPredicted, y=SObserved, fill=Percent)) +
+  geom_tile(col = "white") +
+  scale_fill_viridis() +
+  #geom_smooth(method="lm", col="red") +
+  facet_wrap(~Parameters, scales="free") +
+  geom_text(aes(label = percent(Percent, .1)), col="white") +
+
+  theme_pander()
+```
+
+```{r}
+wmle_predictions %>%
+  ungroup() %>%
+  mutate(Accuracy = if_else(Prediction == Observed, 1, 0)) %>%
+  group_by(Parameters) %>%
+  summarise(Accuracy = mean(Accuracy),
+            RMSE = sqrt(mean((Prediction - Observed)**2)),
+            Correlation = cor.test(Prediction, Observed)$estimate) -> accuracies
+
+accuracies
+```
+
+```{r}
+accuracies$Chance = c(1/4, 1/3, 1/3, 1/3)
+
+ggplot(accuracies, aes(x=Parameters, y=Accuracy, fill=Parameters)) +
+  facet_wrap(~ Parameters, ncol=4, drop=TRUE, scales = "free_x") +
+  geom_col(col="lightgrey") +
+  geom_hline(aes(yintercept = Chance), linetype="dashed") +
+  ylim(0, 0.75) +
+  theme_pander()
+
+ggsave("alia.png")
+
+```
+
+```{r}
+wmle_predictions %>%
+  ungroup() %>%
+  mutate(Accuracy = if_else(Prediction == Observed, 1, 0)) %>%
+  group_by(Parameters) %>%
+  summarise(Predicted = mean(Prediction),
+            Observed = mean(Observed),
+            PredictedSD = sd(Prediction),
+            ObservedSD = sd(Observed))
+```
+
+### Forward prediction
+
+```{r}
+grand <- a %>%
+  group_by(W, I, C, gamma, R, Trajectory) %>%
+  summarize(Prob = length(Trajectory) / 100)
+
+grand_f <- grand %>%
+  group_by(W, I, C, gamma, R) %>%
+  filter(Prob == max(Prob)) %>%
+  rename(PredictedTrajectory = Trajectory)
+
+forward_prediction <- full_join(patterns, grand_f) %>%
+  mutate(Accuracy = if_else(Trajectory == PredictedTrajectory, 1, 0))
+```
+Now, visualization
+
+```{r}
+forward_prediction %>%
+  filter(I > 1) %>%
+  group_by(Trajectory) %>%
+  summarise(Accuracy = mean(Accuracy)) 
+
+forward_prediction %>%
+  filter(I > 1) %>%
+  summarise(Accuracy = mean(Accuracy)) 
+```
+
+Visualization
+
+```{r}
+forward_prediction$Trajectory <- factor(forward_prediction$Trajectory,
+                                        levels = c("Resilient", "Recovery", "Chronic", "Delayed"))
+
+forward_prediction$PredictedTrajectory <- factor(forward_prediction$PredictedTrajectory,
+                                                 levels = c("Resilient", "Recovery", "Chronic", "Delayed"))
+
+forward_percentages <- forward_prediction %>%
+  filter(I > 1) %>%
+  ungroup() %>%
+  group_by(Trajectory, PredictedTrajectory) %>%
+  summarise(Count = length(Prob)) %>%
+  ungroup() %>%
+  group_by(Trajectory) %>%
+  mutate(Percent = Count / sum(Count))
+
+ggplot(forward_percentages, aes(x=PredictedTrajectory, y=Trajectory, fill=Percent)) +
+  geom_tile(col="white") +
+  scale_fill_viridis(option="inferno", end=0.8) +
+  ggtitle("Confusion Matrix for Predicted Trajectories") +
+  geom_text(aes(label = percent(Percent, .1)), col="white") +
+  theme_pander()
+```
