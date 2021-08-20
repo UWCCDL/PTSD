@@ -1839,3 +1839,44 @@ wmle_predictions %>%
             ObservedSD = sd(Observed))
 ```
 
+### Forward prediction
+
+```{r}
+grand <- a %>%
+  group_by(W, I, C, gamma, R, Trajectory) %>%
+  summarize(Prob = length(Trajectory) / 100)
+
+grand_f <- grand %>%
+  group_by(W, I, C, gamma, R) %>%
+  filter(Prob == max(Prob)) %>%
+  rename(PredictedTrajectory = Trajectory)
+
+forward_prediction <- full_join(patterns, grand_f) %>%
+  mutate(Accuracy = if_else(Trajectory == PredictedTrajectory, 1, 0))
+```
+Now, visualization
+
+```{r}
+forward_prediction %>%
+  filter(I > 1) %>%
+  group_by(PredictedTrajectory) %>%
+  summarise(Accuracy = mean(Accuracy)) 
+
+forward_prediction %>%
+  filter(I > 1) %>%
+  summarise(Accuracy = mean(Accuracy)) 
+```
+
+Visualization
+
+```{r}
+forward_prediction$Trajectory <- factor(forward_prediction$Trajectory,
+                                        levels = c("Resilient", "Recovery", "Chronic", "Delayed"))
+
+forward_prediction$PredictedTrajectory <- factor(forward_prediction$PredictedTrajectory,
+                                                 levels = c("Resilient", "Recovery", "Chronic", "Delayed"))
+
+ggplot(filter(forward_prediction, I > 1), aes(x=PredictedTrajectory, y=Trajectory)) +
+  geom_bin_2d() +
+  scale_fill_viridis()
+```
