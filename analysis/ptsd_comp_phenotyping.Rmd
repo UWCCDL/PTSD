@@ -456,8 +456,6 @@ ggplot(filter(a, I != 1),
   scale_color_d3() +
   scale_fill_d3() +
   theme_pander()
-
-ggsave("figures/figure6.png", dpi = 300)
 ```
 
 The results indicate that our classification was correct; the trajectories behave as planned.
@@ -607,8 +605,6 @@ ggplot(baseline_a,
   geom_vline(data=props, aes(xintercept=-0.25)) +
   scale_fill_d3() +
   theme_pander() 
-
-ggsave("figures/figure7.png", dpi=300)
 ```
 
 The Chonic and Delayed trajectories, being the least common, exhibit significant ups and downs, hence the need for Loess smoothing. Nonetheless, the trajectories remain visible and clearly identifiable.
@@ -626,275 +622,6 @@ The main difference is that the delayed onset trajectory has a higher proportion
 
 
 # Predictions
-
-```{r}
-
-intermediate <- a %>%
-  filter(Day > 0) %>%
-  filter(Day <= 20) %>%
-  filter(I != 1) %>%
-  mutate(Condition = paste("(", I, 
-                           ", ",  C, 
-                           ", ", W, ")", sep="")) %>%
-  group_by(Day, I, C, gamma, W, Condition)  %>%
-  summarise(Intrusions=mean(CTraumatic),
-            SDIntrusions=sd(CTraumatic),) 
-```
-
-```{r fig.width=10, fig.height=10}
-ggplot(intermediate, 
-       aes(x=Day, y=Intrusions, col=as.factor(gamma))) +
-  geom_point() +
-  ylim(0, 50) +
-  facet_wrap(~ Condition) + #label=label_both) +
-  geom_vline(data=props, aes(xintercept=-0.15)) +
-  theme_pander()
-```
-
-
-Now, let's build the probability table
-
-```{r}
-get_prob_by_day <- function(n, day, Intensity, Context, WM, gammaval) {
-    intermediate %>%
-    filter(Day == day,
-           W == WM,
-           I == Intensity,
-           C == Context,
-           gamma == gammaval) -> sub
-    m <- sub$Intrusions
-    sd <- sub$SDIntrusions
-    dnorm(n, m, sd)
-}
-
-CREATE_LOGLIKELIHOODS <- F
-
-if (CREATE_LOGLIKELIHOODS) {
-  vals <- NULL
-  for (n in 0:50) {
-    print(n)
-    for (d in 1:20) {
-      for (i in c(20, 40, 60)) {
-        for (c in c(0, 0.25, 0.5, 0.75)) {
-          for (w in c(4, 8, 12)) {
-            for (g in c(0.8, 0.9, 0.95)) {
-              p <- get_prob_by_day(n, d, i, c, w, g)
-              result <- c(n, d, i, c, w, g, p)
-              if (is.null(vals)) {
-                vals <- result
-              } else {
-                vals <- rbind(vals, result)
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  
-
-  vals <- as_tibble(vals)
-  names(vals) <- c("N", "Day", "I", "C", "W", "gamma", "Probability")
-  
-  #Replace probabilities=0 with very small values 
-  vals$Probability[vals$Probability == 0] <- 1e-50
-  vals$LogLikelihood <- log(vals$Probability)
-  write_tsv(vals, "loglikelihoods.tsv")
-} else {
-  vals <- read_tsv("loglikelihoods.tsv")
-}
-```
-
-
-```{r}
-k <- NULL
-parameters_mle <- function(predicted) {
-  filtered <- NULL
-  day <- 1
-  #print(predicted)
-  for (n in as_vector(predicted)) {
-    sub <- vals %>%
-      filter(Day == day,  N == n)
-    #print(c(day, n, dim(sub)))
-    if (is.null(filtered)) {
-      filtered <- sub
-    } else {
-      filtered <- rbind(filtered, sub)
-    }
-    day <- day + 1
-  }
-  likelihoods <- filtered %>%
-    group_by(I, C, W, gamma) %>%
-    summarise(LogLikelihood = sum(LogLikelihood))
-  #filtered
-  filter(likelihoods, LogLikelihood == max(likelihoods$LogLikelihood))
-}
-```
-
-
-Example run:
-
-```{r}
-test <- a %>% 
-  filter(Day > 0, Day <= 20) %>%
-  filter(W == 4,  
-         C == 0.25, 
-         gamma == 0.9, 
-         I == 20, 
-         R == 0, 
-         A == 4, 
-         Run == 2) %>% 
-  dplyr::select(CTraumatic)
-parameters_mle(test)
-```
-
-Now let's analyze all the runs of the model, and create the predicted parameter values for each
-
-```{r}
-mle_prediction <- NULL
-
-CREATE_MLE <- F
-
-if (CREATE_MLE) {
-  options(dplyr.summarise.inform = FALSE)
-  a_sub <- a %>%
-    filter(Day > 0, Day <= 20, I > 1)
-  
-  
-  jj <- 1
-  
-  for (i in unique(a_sub$I)) {
-    for (c in unique(a_sub$C)) {
-      for (w in unique(a_sub$W)) {
-        for (g in unique(a_sub$gamma)) {
-          for (r in unique(a_sub$R)) {
-            for (att in unique(a_sub$A)) {
-              print(c(i, c, w, g, r, att))
-              for (j in unique(a_sub$Run)) {
-            
-                values <- a_sub %>%
-                  filter(W == w,  
-                         C == c, 
-                         gamma == g, 
-                         I == i, 
-                         R == r, 
-                         A == att, 
-                         Run == j) %>% 
-                  dplyr::select(CTraumatic)
-                prediction <- as_vector(parameters_mle(values))
-                
-                observed <- tibble(Parameters = c("I", "C", "W", "gamma"),
-                                   Type = "Observed",
-                                   Value = c(i, c, w, g),
-                                   LogLikelihood = prediction[5],
-                                   Run = jj)
-                
-                predicted  <- tibble(Parameters = c("I", "C", "W", "gamma"),
-                                     Type = "Prediction",
-                                     Value = prediction[1:4],
-                                     LogLikelihood = prediction[5],
-                                     Run = jj)
-                
-                set <- rbind(observed, predicted)
-                #print("Done")
-                
-                if (is.null(mle_prediction)) {
-                  mle_prediction <- set
-                } else {
-                  mle_prediction <- rbind(mle_prediction, set)
-                }
-                jj <- jj+1
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  options(dplyr.summarise.inform = T)
-  write_csv(mle_prediction, "mle_predictions.csv")
-} else {
-  mle_predictions <- read_csv("mle_predictions.csv")
-}
-```
-
-
-```{r}
-
-mle_predictions <- mle_predictions %>%
-  group_by(Parameters) %>%
-  mutate(ScaledValue = Value / max(Value))
-
-wmle_predictions <- mle_predictions %>%
-  dplyr::select(-ScaledValue) %>%
-  pivot_wider(values_from = "Value", names_from = "Type")
-
-ggplot(wmle_predictions, aes(x=Prediction, y=Observed)) +
-  geom_count(alpha=.5) +
-  geom_smooth(method="lm", col="red") +
-  facet_wrap(~Parameters, scales="free") +
-  theme_pander()
-
-```
-
-```{r}
-newbackpred <- wmle_predictions %>%
-  mutate(SObserved = as.character(Observed),
-         SPredicted = as.character(Prediction)) %>%
-  ungroup() %>%
-  group_by(Parameters, SObserved, SPredicted) %>%
-  summarise(Count = length(Run)) %>%
-  ungroup() %>%
-  group_by(Parameters, SObserved) %>%
-  mutate(Percent = Count / sum(Count))
-  
-
-ggplot(newbackpred, aes(x=SPredicted, y=SObserved, fill=Percent)) +
-  geom_tile(col = "white") +
-  scale_fill_viridis() +
-  #geom_smooth(method="lm", col="red") +
-  facet_wrap(~Parameters, scales="free") +
-  geom_text(aes(label = percent(Percent, .1)), col="white") +
-
-  theme_pander()
-```
-
-```{r}
-wmle_predictions %>%
-  ungroup() %>%
-  mutate(Accuracy = if_else(Prediction == Observed, 1, 0)) %>%
-  group_by(Parameters) %>%
-  summarise(Accuracy = mean(Accuracy),
-            RMSE = sqrt(mean((Prediction - Observed)**2)),
-            Correlation = cor.test(Prediction, Observed)$estimate) -> accuracies
-
-accuracies
-```
-
-```{r}
-accuracies$Chance = c(1/4, 1/3, 1/3, 1/3)
-
-ggplot(accuracies, aes(x=Parameters, y=Accuracy, fill=Parameters)) +
-  facet_wrap(~ Parameters, ncol=4, drop=TRUE, scales = "free_x") +
-  geom_col(col="lightgrey") +
-  geom_hline(aes(yintercept = Chance), linetype="dashed") +
-  ylim(0, 0.75) +
-  theme_pander()
-
-ggsave("alia.png")
-
-```
-
-```{r}
-wmle_predictions %>%
-  ungroup() %>%
-  mutate(Accuracy = if_else(Prediction == Observed, 1, 0)) %>%
-  group_by(Parameters) %>%
-  summarise(Predicted = mean(Prediction),
-            Observed = mean(Observed),
-            PredictedSD = sd(Prediction),
-            ObservedSD = sd(Observed))
-```
 
 ### Forward prediction
 
@@ -949,3 +676,279 @@ ggplot(forward_percentages, aes(x=PredictedTrajectory, y=Trajectory, fill=Percen
   geom_text(aes(label = percent(Percent, .1)), col="white") +
   theme_pander()
 ```
+
+## Backward Predictions
+
+```{r}
+
+intermediate <- a %>%
+  filter(Day > 0) %>%
+  filter(I != 1) %>%
+  mutate(Condition = paste("(", I, 
+                           ", ",  C, 
+                           ", ", W, ")", sep="")) %>%
+  group_by(Day, I, C, gamma, W, R, Condition)  %>%
+  summarise(Intrusions=mean(CTraumatic),
+            SDIntrusions=sd(CTraumatic),) 
+```
+
+```{r fig.width=10, fig.height=10}
+ggplot(intermediate, 
+       aes(x=Day, y=Intrusions, col=as.factor(gamma))) +
+  geom_point() +
+  ylim(0, 50) +
+  facet_wrap(~ Condition) + #label=label_both) +
+  geom_vline(data=props, aes(xintercept=-0.15)) +
+  theme_pander()
+```
+
+
+Now, let's build the probability table
+
+```{r}
+get_prob_by_day_5 <- function(n, day, Intensity, Context, WM, gammaval, Rval) {
+    intermediate %>%
+    filter(Day == day,
+           W == WM,
+           I == Intensity,
+           C == Context,
+           R == Rval, 
+           gamma == gammaval) -> sub
+    m <- sub$Intrusions
+    sd <- sub$SDIntrusions
+    dnorm(n, m, sd)
+}
+
+CREATE_LOGLIKELIHOODS <- T
+
+if (CREATE_LOGLIKELIHOODS) {
+  vals <- NULL
+  for (n in 0:max(a$CTraumatic)) {
+    print(n)
+    for (d in unique(intermediate$Day)) {
+      for (i in unique(intermediate$I)) {
+        for (c in unique(intermediate$C)) {
+          for (w in unique(intermediate$W)) {
+            for (g in unique(intermediate$gamma)) {
+              for (r in unique(intermediate$R)) {
+                p <- get_prob_by_day_5(n, d, i, c, w, g, r)
+                result <- c(n, d, i, c, w, g, r, p)
+                if (is.null(vals)) {
+                  vals <- result
+                } else {
+                  vals <- rbind(vals, result)
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+
+  vals <- as_tibble(vals)
+  names(vals) <- c("N", "Day", "I", "C", "W", "gamma", "R", "Probability")
+  
+  #Replace probabilities=0 with very small values 
+  vals$Probability[vals$Probability < 1e-200] <- 1e-200
+  vals$Probability[vals$Probability > 1] <- 1
+  vals$LogLikelihood <- log(vals$Probability)
+  write_tsv(vals, "loglikelihoods5_60.tsv")
+} else {
+  vals <- read_tsv("loglikelihoods5_60.tsv")
+}
+```
+
+
+```{r}
+k <- NULL
+parameters_mle <- function(predicted) {
+  filtered <- NULL
+  day <- 1
+  #print(predicted)
+  for (n in as_vector(predicted)) {
+    sub <- vals %>%
+      filter(Day == day,  N == n)
+    if (is.null(filtered)) {
+      filtered <- sub
+    } else {
+      filtered <- rbind(filtered, sub)
+    }
+#    print(c(day, n, dim(filtered)))
+    
+    day <- day + 1
+  }
+  filtered
+  likelihoods <- filtered %>%
+    group_by(I, C, W, gamma, R) %>%
+    summarise(LogLikelihood = sum(LogLikelihood))
+  filter(likelihoods, LogLikelihood == max(likelihoods$LogLikelihood))
+}
+```
+
+
+Example run:
+
+```{r}
+test <- a %>% 
+  filter(Day > 0, Day <= 20) %>%
+  filter(W == 4,  
+         C == 0.25, 
+         gamma == 0.9, 
+         I == 60, 
+         R == 20, 
+         A == 4, 
+         Run == 2) %>% 
+  dplyr::select(CTraumatic)
+parameters_mle(test)
+```
+
+Now let's analyze all the runs of the model, and create the predicted parameter values for each
+
+```{r}
+mle_prediction <- NULL
+
+CREATE_MLE <- F
+
+if (CREATE_MLE) {
+  options(dplyr.summarise.inform = FALSE)
+  a_sub <- a %>%
+    filter(Day > 0, Day <= 20, I > 1)
+  
+  
+  jj <- 1
+  
+  for (i in unique(a_sub$I)) {
+    for (c in unique(a_sub$C)) {
+      for (w in unique(a_sub$W)) {
+        for (g in unique(a_sub$gamma)) {
+          for (r in unique(a_sub$R)) {
+            for (att in unique(a_sub$A)) {
+              print(c(i, c, w, g, r, att))
+              for (j in unique(a_sub$Run)) {
+            
+                values <- a_sub %>%
+                  filter(W == w,  
+                         C == c, 
+                         gamma == g, 
+                         I == i, 
+                         R == r, 
+                         A == att, 
+                         Run == j) %>% 
+                  dplyr::select(CTraumatic)
+                prediction <- as_vector(parameters_mle(values)[1,])
+                
+                observed <- tibble(Parameters = c("I", "C", "W", "gamma", "R"),
+                                   Type = "Observed",
+                                   Value = c(i, c, w, g, r),
+                                   LogLikelihood = prediction[6],
+                                   Run = jj)
+                
+                predicted  <- tibble(Parameters = c("I", "C", "W", "gamma", "R"),
+                                     Type = "Prediction",
+                                     Value = prediction[1:5],
+                                     LogLikelihood = prediction[6],
+                                     Run = jj)
+                
+                set <- rbind(observed, predicted)
+                #print("Done")
+                
+                if (is.null(mle_prediction)) {
+                  mle_prediction <- set
+                } else {
+                  mle_prediction <- rbind(mle_prediction, set)
+                }
+                jj <- jj+1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  options(dplyr.summarise.inform = T)
+  write_csv(mle_prediction, "mle_predictions5.csv")
+} else {
+  mle_predictions <- read_csv("mle_predictions5.csv")
+}
+```
+
+
+```{r}
+
+mle_predictions <- mle_predictions %>%
+  group_by(Parameters) %>%
+  mutate(ScaledValue = Value / max(Value))
+
+wmle_predictions <- mle_predictions %>%
+  dplyr::select(-ScaledValue) %>%
+  pivot_wider(values_from = "Value", names_from = "Type")
+
+ggplot(wmle_predictions, aes(x=Prediction, y=Observed)) +
+  geom_count(alpha=.5) +
+  geom_smooth(method="lm", col="red") +
+  facet_wrap(~Parameters, scales="free") +
+  theme_pander()
+
+```
+
+```{r fig.width=7, fig.height=10}
+newbackpred <- wmle_predictions %>%
+  mutate(SObserved = as.character(Observed),
+         SPredicted = as.character(Prediction)) %>%
+  ungroup() %>%
+  group_by(Parameters, SObserved, SPredicted) %>%
+  summarise(Count = length(Run)) %>%
+  ungroup() %>%
+  group_by(Parameters, SObserved) %>%
+  mutate(Percent = Count / sum(Count))
+  
+
+ggplot(newbackpred, aes(x=SPredicted, y=SObserved, fill=Percent)) +
+  geom_tile(col = "white") +
+  scale_fill_viridis(option="magma", end=0.8) +
+  #geom_smooth(method="lm", col="red") +
+  facet_wrap(~Parameters, scales="free", ncol=2) +
+  geom_text(aes(label = percent(Percent, .1)), col="white") +
+
+  theme_pander()
+```
+
+```{r}
+wmle_predictions %>%
+  ungroup() %>%
+  mutate(Accuracy = if_else(Prediction == Observed, 1, 0)) %>%
+  group_by(Parameters) %>%
+  summarise(Accuracy = mean(Accuracy),
+            RMSE = sqrt(mean((Prediction - Observed)**2)),
+            Correlation = cor.test(Prediction, Observed)$estimate) -> accuracies
+
+accuracies
+```
+
+```{r}
+accuracies$Chance = c(1/4, 1/3, 1/3, 1/2, 1/3)
+
+ggplot(accuracies, aes(x=Parameters, y=Accuracy, fill=Parameters)) +
+  scale_fill_aaas() +
+  facet_wrap(~ Parameters, ncol=5, drop=TRUE, scales = "free_x") +
+  geom_col(col="lightgrey") +
+  geom_hline(aes(yintercept = Chance), linetype="dashed") +
+  ylim(0, 0.75) +
+  theme_pander()
+
+ggsave("alia.png")
+
+```
+
+```{r}
+wmle_predictions %>% 
+  group_by(Parameters) %>% 
+  summarise(Predicted_SD = sd(Prediction), 
+            Observed_SD = sd(Observed), 
+            Predicted_Mean = mean(Prediction),
+            Observed_Mean = mean(Observed), 
+            )
+```
+
