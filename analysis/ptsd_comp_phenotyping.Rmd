@@ -38,6 +38,8 @@ library(gridExtra)      # Multi plot alignment
 library(patchwork)      # Multi-plot alignment
 
 library(ggseg)          # Brain visualization (standard DK atlas)
+library(parallel)
+library(pROC)
 
 ```
 
@@ -623,7 +625,11 @@ The main difference is that the delayed onset trajectory has a higher proportion
 
 # Predictions
 
-### Forward prediction
+## Forward prediction
+
+Forward predictions assume we know the model's initial conditions. They are used to predict the final outcome.
+
+### Predictions About Trajectories
 
 ```{r}
 grand <- a %>%
@@ -650,6 +656,7 @@ forward_prediction %>%
   filter(I > 1) %>%
   summarise(Accuracy = mean(Accuracy)) 
 ```
+
 
 Visualization
 
@@ -679,10 +686,220 @@ ggplot(forward_percentages, aes(x=PredictedTrajectory, y=Trajectory, fill=Percen
   theme_pander()
 ```
 
+#### AUC
+
+```{r}
+forward_prediction <- forward_prediction %>%
+  
+  mutate(ResilientTrajectory = if_else(Trajectory == "Resilient", 
+                                           1, 
+                                           0),
+         ResilientPredicted = if_else(PredictedTrajectory == "Resilient",
+                                           1, 
+                                           0),
+         RecoveryTrajectory = if_else(Trajectory == "Recovery", 
+                                           1, 
+                                           0),
+         RecoveryPredicted = if_else(PredictedTrajectory == "Recovery", 
+                                           1, 
+                                           0),
+         ChronicTrajectory = if_else(Trajectory == "Chronic", 
+                                           1, 
+                                           0),
+         ChronicPredicted = if_else(PredictedTrajectory == "Chronic", 
+                                           1, 
+                                           0),
+         DelayedTrajectory = if_else(Trajectory == "Delayed", 
+                                           1, 
+                                           0),
+         DelayedPredicted = if_else(PredictedTrajectory == "Delayed", 
+                                           1, 
+                                           0)
+         ) 
+
+roc_resilient <- roc(forward_prediction$ResilientTrajectory, 
+                     forward_prediction$ResilientPredicted)
+
+roc_recovery <- roc(forward_prediction$RecoveryTrajectory, 
+                    forward_prediction$RecoveryPredicted)
+
+roc_chronic <- roc(forward_prediction$ChronicTrajectory, 
+                   forward_prediction$ChronicPredicted)
+
+roc_delayed <- roc(forward_prediction$DelayedTrajectory, 
+                   forward_prediction$DelayedPredicted)
+```
+
+```{r fig.width=4, fig.height=4}
+p1 <- ggroc(roc_resilient, col="red") +
+  geom_point(aes(y=roc_resilient$sensitivities, 
+                 x=roc_resilient$specificities), col="red", size=4, 
+             
+             alpha=.5) +
+  ggtitle("Resilient") +
+  xlab("") + ylab("") + 
+  geom_segment(aes(x = 1, xend = 0, 
+                   y = 0, yend = 1), 
+               color="grey", linetype="dashed") +
+  geom_text(aes(x = 0.5, y = 0.25, 
+                label = paste("AUC = ", 
+                              round(roc_resilient$auc, 2)))) +
+  theme_pander()
+
+
+p2 <- ggroc(roc_recovery, col="red") +
+  geom_point(aes(y=roc_recovery$sensitivities, 
+                 x=roc_recovery$specificities), col="red", size=4, 
+             
+             alpha=.5) +
+  ggtitle("Recovery") +
+  xlab("") + ylab("") + 
+  geom_segment(aes(x = 1, xend = 0, 
+                   y = 0, yend = 1), 
+               color="grey", linetype="dashed") +
+  geom_text(aes(x = 0.5, y = 0.25, 
+                label = paste("AUC = ", 
+                              round(roc_recovery$auc, 2)))) +
+  theme_pander()
+
+
+p3 <- ggroc(roc_chronic, col="red") +
+  geom_point(aes(y=roc_chronic$sensitivities, 
+                 x=roc_chronic$specificities), col="red", size=4, 
+             
+             alpha=.5) +
+  ggtitle("Chronic") +
+  xlab("Specificity (TNR)") + ylab("Sensitivity (TPR)") + 
+  geom_segment(aes(x = 1, xend = 0, 
+                   y = 0, yend = 1), 
+               color="grey", linetype="dashed") +
+  geom_text(aes(x = 0.5, y = 0.25, 
+                label = paste("AUC = ", 
+                              round(roc_chronic$auc, 2)))) +
+  theme_pander()
+
+
+p4 <- ggroc(roc_delayed, col="red") +
+  geom_point(aes(y=roc_delayed$sensitivities, 
+                 x=roc_delayed$specificities), 
+             col="red", size=4, 
+             
+             alpha=.5) +
+  ggtitle("Delayed") +
+  xlab("") + ylab("") + 
+  geom_segment(aes(x = 1, xend = 0, 
+                   y = 0, yend = 1), 
+               color="grey", linetype="dashed") +
+  geom_text(aes(x = 0.5, y = 0.25, 
+                label = paste("AUC = ", 
+                              round(roc_delayed$auc, 2)))) +
+  theme_pander()
+
+
+(p1 | p2) / (p3 + p4)
+```
+
+#### Single-plot of AUC
+
+```{r, fig.width=4, fig.height=3}
+aucs <- c(roc_resilient$auc,
+          roc_recovery$auc,
+          roc_chronic$auc,
+          roc_delayed$auc)
+
+xs <- c(roc_resilient$specificities,
+       roc_recovery$specificities,
+       roc_chronic$specificities,
+       roc_delayed$specificities)
+
+ys <- c(roc_resilient$sensitivities,
+       roc_recovery$sensitivities,
+       roc_chronic$sensitivities,
+       roc_delayed$sensitivities)
+
+wroc <- tibble(Trajectories = rep(c("Resilient", "Recovery", "Chronic", "Delayed"), each=3),
+               x = xs,
+               y = ys)
+
+wauc <- tibble(Trajectories = rep(c("Resilient", "Recovery", "Chronic", "Delayed"), each=1),
+               x = xs[c(2, 5, 8, 11)],
+               y = ys[c(2, 5, 8, 11)],
+               AUC = aucs)
+
+wroc$Trajectories <- factor(wroc$Trajectories,
+                            levels = c("Recovery", 
+                                       "Chronic", 
+                                       "Resilient", 
+                                       "Delayed"))
+
+ggplot(wroc, aes(x=x, y=y, col=Trajectories)) +
+  geom_line() +
+  geom_point(size=3) +
+  scale_color_d3() +
+  ylab("Sensitivity (True Positive Rate)") +
+  xlab("Specificity (True Negative Rate)") +
+  scale_x_reverse() +
+  ggtitle("Prediction Accuracy for Trajectories") +
+  geom_text_repel(data=wauc, aes(x=x, y=y), 
+                   label=paste("AUC =", round(wauc$AUC, 2))) +
+  geom_abline(slope=1, intercept = 1, col="grey", linetype = "dashed") +
+  theme_pander()
+```
+
+### Predictions About Intrusions
+
+```{r}
+MyMode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+lastweek <- a %>%
+  filter(Day > 52, I > 1) %>%
+  group_by(W, I, gamma, R, C, Run, A, Trajectory) %>%
+  summarise(NumberIntrusions = sum(CTraumatic))
+
+lastweekp <- lastweek %>% 
+  group_by(W, I, gamma, R, C) %>%
+  summarise(PredictedNumIntrusionsMean = mean(NumberIntrusions),
+            PredictedNumIntrusionsMedian = median(NumberIntrusions),
+            PredictedNumIntrusionsMode = MyMode(NumberIntrusions))
+```
+
+Now, we can re-join the data:
+
+```{r}
+lastweek_comp <- full_join(lastweek, lastweekp)
+```
+
+And now, let's calculate the predictions:
+
+```{r fig.width=3, fig.height=3}
+smmry <- tibble(r = round(
+  cor(lastweek_comp_nozero$PredictedNumIntrusionsMode,
+      lastweek_comp_nozero$NumberIntrusions),
+  2))
+
+lastweek_comp_nozero <- filter(lastweek_comp, NumberIntrusions > 0)
+
+ggplot(lastweek_comp_nozero, aes(x=PredictedNumIntrusionsMode,
+                          y =NumberIntrusions)) +
+  geom_count(alpha = 0.15, size=0.5, col="navy",
+              position="jitter") +
+  #geom_bin2d(bins=10) +
+  scale_size_area() +
+  xlab("Num Predicted (Week 8)") +
+  ylab("Num Observed (Week 8)") +
+  ggtitle("Prediction Accuracy\nfor Intrusions") +
+  geom_smooth(method = "lm", col="red") +
+  geom_text(data=smmry, x = 200, y = 50, label=paste("r =",  smmry$r)) +
+  coord_equal() +
+  theme_pander()
+```
+
 ## Backward Predictions
 
 ```{r}
-
 intermediate <- a %>%
   filter(Day > 0) %>%
   filter(I != 1) %>%
@@ -758,7 +975,18 @@ if (CREATE_LOGLIKELIHOODS) {
   vals$LogLikelihood <- log(vals$Probability)
   write_tsv(vals, "loglikelihoods5_60.tsv")
 } else {
-  vals <- read_tsv("loglikelihoods5_60.tsv")
+  vals <- read_tsv("loglikelihoods5_60.tsv",
+                   col_types = cols(
+                     N = col_double(),
+                     Day = col_double(),
+                     I = col_double(),
+                     C = col_double(),
+                     W = col_double(),
+                     gamma = col_double(),
+                     R = col_double(),
+                     Probability = col_double(),
+                     LogLikelihood = col_double()
+                   ))
 }
 ```
 
