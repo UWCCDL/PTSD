@@ -875,24 +875,28 @@ lastweek_comp <- full_join(lastweek, lastweekp)
 And now, let's calculate the predictions:
 
 ```{r fig.width=3, fig.height=3}
+lastweek_comp_nozero <- filter(lastweek_comp, 
+                               NumberIntrusions > 10,
+                               PredictedNumIntrusionsMode > 10)
+
 smmry <- tibble(r = round(
   cor(lastweek_comp_nozero$PredictedNumIntrusionsMode,
       lastweek_comp_nozero$NumberIntrusions),
   2))
 
-lastweek_comp_nozero <- filter(lastweek_comp, NumberIntrusions > 0)
-
 ggplot(lastweek_comp_nozero, aes(x=PredictedNumIntrusionsMode,
                           y =NumberIntrusions)) +
-  geom_count(alpha = 0.15, size=0.5, col="navy",
-              position="jitter") +
-  #geom_bin2d(bins=10) +
+  #geom_count(alpha = 0.15, size=0.5, col="navy",
+  #            position="jitter") +
+  geom_bin2d(bins=12, col="white") +
+  scale_fill_viridis() +
   scale_size_area() +
   xlab("Num Predicted (Week 8)") +
   ylab("Num Observed (Week 8)") +
   ggtitle("Prediction Accuracy\nfor Intrusions") +
   geom_smooth(method = "lm", col="red") +
-  geom_text(data=smmry, x = 200, y = 50, label=paste("r =",  smmry$r)) +
+  geom_text(data=smmry, x = 220, y = 50, 
+            color="red", label=paste("r =",  smmry$r)) +
   coord_equal() +
   theme_pander()
 ```
