@@ -38,7 +38,7 @@ library(gridExtra)      # Multi plot alignment
 library(patchwork)      # Multi-plot alignment
 
 library(ggseg)          # Brain visualization (standard DK atlas)
-
+library(QuantPsyc)
 ```
 
 # Model and Simulations
@@ -726,7 +726,11 @@ ggplot(IC_a,
 The effects of _I_ and _C_ on the probabilities of recall during the Chronic period can be understood with a linear model analysis
 
 ```{r}
+
 IC_mod <- glm(CTraumatic ~ I * C, family="poisson", IC_traumatic)
+# lm.beta(IC_mod) 
+#or
+# glm(scale(CTraumatic) ~ scale(I) * scale(C), family="poisson", IC_traumatic)
 summary(IC_mod) %>%
   xtable %>%
   kable %>%

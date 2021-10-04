@@ -1106,9 +1106,17 @@ if (CREATE_MLE) {
     }
   }
   options(dplyr.summarise.inform = T)
-  write_csv(mle_prediction, "mle_predictions5_alldays_01_20.csv")
+  write_csv(mle_prediction, "mle_predictions5_alldays.csv")
 } else {
-  mle_predictions <- read_csv("mle_predictions5_alldays.csv")
+  mle_predictions <- read_csv(gzfile("mle_predictions5_alldays.csv.gz"),
+                              col_types = cols(
+                                Parameters = col_character(),
+                                Type = col_character(),
+                                MaxDay = col_double(),
+                                Value = col_double(),
+                                LogLikelihood = col_double(),
+                                Run = col_double()
+                              ))
 }
 ```
 
@@ -1157,6 +1165,24 @@ ggplot(newbackpred, aes(x=SPredicted, y=SObserved, fill=Percent)) +
   geom_text(aes(label = percent(Percent, .1)), col="white") +
 
   theme_pander()
+```
+
+### AUCs
+
+We need to create AUCs for every parameter.
+
+```{r}
+aucs <- foreach(param = unique(newbackpred$Parameters), .combine='cbind') %:% {
+  foreach(mday = unique(newbackpred$MaxDay)) %dopar% {
+    sub <- filter(newbackpred, Parameters == param, MaxDay == mday)
+    sub$SPredicted <- as.numeric(sub$SPredicted)
+    sub$SObserved <- as.numeric(sub$SObserved)
+    mroc <- mmulticlass.roc(sub$SObserved, sub$SPredicted)
+    auc <- as.numeric(mroc$auc)
+    
+  }
+}
+  
 ```
 
 ```{r}
