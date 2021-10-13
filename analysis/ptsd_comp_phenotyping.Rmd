@@ -51,7 +51,7 @@ This is an analysis of the PTSD model "complete" simulations ("Simulation 3").
 
 One of the goals of the model is to simulate the recovery trajectories in PTSD. The classic distinction is between four different trajectories, Resilient, Recovery, Chronic, and Delayed. These trajectories can be stylized as such
 
-```{r fig.width=6, fig.height=4}
+```{r fig.width=3, fig.height=3}
 time <- -20:60
 
 resilient <- rep(0, length(time))
@@ -78,25 +78,31 @@ ideal <- wideal %>%
                names_to = "Trajectory")
 
 ideal$Trajectory <- factor(ideal$Trajectory,
-                           levels = c("Recovery", "Delayed", "Resilient",  "Chronic"))
+                           levels = c("Recovery", "Delayed",
+                                  "Resilient",  "Chronic"))
 
 ggplot(ideal, 
-       aes(x=Day, 
-           y=CTraumatic, 
-           col=Trajectory, 
-           fill=Trajectory)) +
+       aes(x = Day, 
+           y = CTraumatic, 
+           col = Trajectory, 
+           fill = Trajectory)) +
   #geom_smooth(method="loess", span=0.2) +
   geom_line(size=2, alpha=0.75) +
-  ggtitle("Theoretical Recovery Trajectories") +
+  ggtitle("Recovery Trajectories") +
+  #coord_equal() +
   ylab("Number of Memory Intrusions") +
   geom_vline(data=tibble(), 
              aes(xintercept=-0.35)) +
   scale_color_d3() +
   theme_pander()  +
+  xlab("Time") +
+  xlim(-5, 60) +
   theme(axis.text.y = element_blank(),
         axis.ticks.y = element_blank(),
         axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
+        axis.ticks.x = element_blank(),
+        legend.position = c(0.5, 0.7),
+        legend.background = element_rect(fill=NA))
 ```
 
 ## Underlying memory model
@@ -801,7 +807,7 @@ p4 <- ggroc(roc_delayed, col="red") +
 
 #### Single-plot of AUC
 
-```{r, fig.width=4, fig.height=3}
+```{r, fig.width=3, fig.height=3}
 aucs <- c(roc_resilient$auc,
           roc_recovery$auc,
           roc_chronic$auc,
@@ -828,9 +834,9 @@ wauc <- tibble(Trajectories = rep(c("Resilient", "Recovery", "Chronic", "Delayed
 
 wroc$Trajectories <- factor(wroc$Trajectories,
                             levels = c("Recovery", 
-                                       "Chronic", 
+                                       "Delayed", 
                                        "Resilient", 
-                                       "Delayed"))
+                                       "Chronic"))
 
 ggplot(wroc, aes(x=x, y=y, col=Trajectories)) +
   geom_line() +
@@ -839,11 +845,12 @@ ggplot(wroc, aes(x=x, y=y, col=Trajectories)) +
   ylab("Sensitivity (True Positive Rate)") +
   xlab("Specificity (True Negative Rate)") +
   scale_x_reverse() +
-  ggtitle("Prediction Accuracy for Trajectories") +
+  ggtitle("Prediction Accuracy\nfor Trajectories") +
   geom_text_repel(data=wauc, aes(x=x, y=y), 
                    label=paste("AUC =", round(wauc$AUC, 2))) +
   geom_abline(slope=1, intercept = 1, col="grey", linetype = "dashed") +
-  theme_pander()
+  theme_pander() +
+  theme(legend.position = c(0.8, 0.3))
 ```
 
 ### Predictions About Intrusions
@@ -899,6 +906,43 @@ ggplot(lastweek_comp_nozero, aes(x=PredictedNumIntrusionsMode,
             color="red", label=paste("r =",  smmry$r)) +
   coord_equal() +
   theme_pander()
+```
+
+```{r fig.width=5.5, fig.height=3}
+p1 <- ggplot(lastweek_comp_nozero, aes(x=PredictedNumIntrusionsMode,
+                          y =NumberIntrusions)) +
+  geom_count(alpha = 0.15, size=0.5, col="grey",
+              position="jitter") +
+  #geom_bin2d(bins=12, col="white") +
+  #scale_fill_viridis() +
+  scale_size_area() +
+  xlab("Num Predicted (Week 8)") +
+  ylab("Num Observed (Week 8)") +
+  ggtitle("(A) Accuracy\nfor Intrusions") +
+  geom_smooth(method = "lm", col="red") +
+  geom_text(data=smmry, x = 220, y = 50, 
+            color="red", label=paste("r =",  smmry$r)) +
+  coord_equal() +
+  xlim(0,300) +
+  theme_pander()
+
+p2 <- ggplot(wroc, aes(x=x, y=y, col=Trajectories)) +
+  geom_line() +
+  geom_point(size=3) +
+  scale_color_d3() +
+  ylab("Sensitivity (True Pos. Rate)") +
+  xlab("Specificity (True Neg. Rate)") +
+  scale_x_reverse() +
+  coord_equal() +
+  ggtitle("(B)  Accuracy\nfor Trajectories") +
+  geom_text_repel(data=wauc, aes(x=x, y=y), 
+                   label=paste("AUC =", round(wauc$AUC, 2))) +
+  geom_abline(slope=1, intercept = 1, col="grey", linetype = "dashed") +
+  theme_pander() +
+  theme(legend.position = c(0.8, 0.3),
+        legend.background = element_rect(fill=NA))
+
+p1 | p2
 ```
 
 ## Backward Predictions
@@ -1172,14 +1216,20 @@ ggplot(newbackpred, aes(x=SPredicted, y=SObserved, fill=Percent)) +
 We need to create AUCs for every parameter.
 
 ```{r}
-aucs <- foreach(param = unique(newbackpred$Parameters), .combine='cbind') %:% {
-  foreach(mday = unique(newbackpred$MaxDay)) %dopar% {
+aucs <- NULL
+for (param in unique(newbackpred$Parameters))  {
+  for(mday in unique(newbackpred$MaxDay))  {
     sub <- filter(newbackpred, Parameters == param, MaxDay == mday)
     sub$SPredicted <- as.numeric(sub$SPredicted)
     sub$SObserved <- as.numeric(sub$SObserved)
-    mroc <- mmulticlass.roc(sub$SObserved, sub$SPredicted)
+    mroc <- multiclass.roc(sub$SObserved, sub$SPredicted)
     auc <- as.numeric(mroc$auc)
-    
+    partial <- tibble(Param = param, MaxDay = mday, AUC=auc)
+    if (is.null(aucs)) {
+      aucs <- partial
+    } else {
+      aucs <- cbind(aucs, partial)
+    }
   }
 }
   
