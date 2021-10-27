@@ -38,7 +38,7 @@ library(gridExtra)      # Multi plot alignment
 library(patchwork)      # Multi-plot alignment
 
 library(ggseg)          # Brain visualization (standard DK atlas)
-library(QuantPsyc)
+library(lm.beta)
 ```
 
 # Model and Simulations
@@ -49,7 +49,6 @@ This is an analysis of the PTSD model "complete" simulations ("Simulation 3").
 
 One of the goals of the model is to simulate the recovery trajectories in PTSD. The classic distinction is between four different trajectories, Resilient, Recovery, Chronic, and Delayed. These trajectories can be stylized as such
 
-```{r fig.width=6, fig.height=4}
 ```{r fig.width=6, fig.height=4}
 time <- -20:60
 
@@ -737,6 +736,15 @@ summary(IC_mod) %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
+And the standardized betas
+
+```{r}
+summary(lm.beta(IC_mod))$coefficients %>% 
+  xtable() %>%
+  kable %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
 ### Effects on Trajectories
 
 And here are the changes in trajectories.
@@ -754,8 +762,8 @@ ggplot(data=IC_trajectories, aes(x="", y=N/100, fill=Trajectory)) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 2L)) +
   scale_fill_d3() +
   scale_color_d3() +
-  ylab("PTE Intensity") +
-  xlab("Contextual Similarity") +
+  xlab("PTE Intensity") +
+  ylab("Contextual Similarity") +
   ggtitle("Effect of External Factors on Trajectories") +
   geom_text_repel(aes(label=percent(N/100, .1)), col="white",
             position=position_stack(vjust=0.5 ), size=3)+
@@ -786,7 +794,7 @@ Furthermore, for the Resilient trajectories, the coefficients are negative, impl
 
 ```{r}
 mylogit <- glm(Resilient ~ (I*C), family="binomial", data=IC_patterns)
-summary(mylogit) %>%
+summary(lm.beta(mylogit))$coefficients %>%
   xtable() %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
@@ -798,19 +806,19 @@ For Recovery trajectories, however, the coefficients are significantly positive,
 
 ```{r}
 mylogit <- glm(Recovery ~ (I*C), family="binomial", data=IC_patterns)
-summary(mylogit) %>%
+summary(lm.beta(mylogit))$coefficients %>%
   xtable() %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
 ```
 
-#### Chronic Trajector
+#### Chronic Trajectory
 
 In the case of Chronic and Delayed trajectories, however, the pattern is different. In these cases, both the main factors and their interaction are significant. Furthermore, in both cases, the main factors have positive coefficients but their interaction is negative. This suggests that the effects of one factor decrease the size of the other factor increases. 
 
 ```{r}
 mylogit <- glm(Chronic ~ (I*C), family="binomial", data=IC_patterns)
-summary(mylogit) %>%
+summary(lm.beta(mylogit))$coefficients %>%
   xtable() %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
@@ -820,7 +828,7 @@ summary(mylogit) %>%
 
 ```{r}
 mylogit <- glm(Delayed ~ (I*C), family="binomial", data=IC_patterns)
-summary(mylogit) %>%
+summary(lm.beta(mylogit))$coefficients %>%
   xtable() %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
@@ -913,6 +921,16 @@ summary(Wg_mod) %>%
   kable %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
+
+And the standardized betas
+
+```{r}
+summary(lm.beta(Wg_mod))$coefficients %>% 
+  xtable() %>%
+  kable %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
 ### Effects on Trajectories
 
 And here are the changes in trajectories.
@@ -961,7 +979,7 @@ Because of the large varince in the proportion of trajectories (due to the massi
 mylogit <- glm(Resilient ~ W + gamma, 
                   family = binomial("logit"),
                   data = Wg_patterns)
-summary(mylogit)  %>%
+summary(lm.beta(mylogit))$coefficients  %>%
   xtable() %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
@@ -975,7 +993,7 @@ We can then examine the _Chronic_ trajectory:
 ```{r}
 mylogit <- glm(Chronic ~ (W + gamma), family=binomial("logit"), 
                data=Wg_patterns)
-summary(mylogit) %>%
+summary(lm.beta(mylogit))$coefficients %>%
   xtable() %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
@@ -988,7 +1006,7 @@ Then, we on the Recovery trajectory.
 ```{r}
 mylogit <- glm(Recovery ~ (W + gamma), family=binomial("logit"), 
                data=filter(Wg_patterns, W<13))
-summary(mylogit) %>%
+summary(lm.beta(mylogit))$coefficients %>%
   xtable() %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
@@ -1002,7 +1020,7 @@ The _Delayed_ trajectory:
 mylogit <- glm(Delayed ~ (W + gamma), 
                family=binomial("logit"), 
                data=filter(Wg_patterns, W < 20) )
-summary(mylogit) %>%
+summary(lm.beta(mylogit))$coefficients %>%
   xtable() %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
@@ -1089,6 +1107,15 @@ summary(R_mod) %>%
 ```
 
 
+And the standardized betas
+
+```{r}
+summary(lm.beta(R_mod))$coefficients %>% 
+  xtable() %>%
+  kable %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
 ### Effects on Trajectories
 
 And here are the changes in trajectories.
@@ -1134,7 +1161,7 @@ First, we can examine the effects on the _Resilient_ trajectory.
 mylogit <- glm(Resilient ~ R, 
                family = "binomial",
                data = R_patterns)
-summary(mylogit) %>%
+summary(lm.beta(mylogit))$coefficients %>%
   xtable() %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
@@ -1146,7 +1173,7 @@ We can then examine the _Chronic_ trajectory:
 
 ```{r}
 mylogit <- glm(Chronic ~ R, family="binomial", data=R_patterns)
-summary(mylogit) %>%
+summary(lm.beta(mylogit))$coefficients %>%
   xtable() %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
@@ -1158,7 +1185,7 @@ The, we analyze the Recovery trajectory.
 
 ```{r}
 mylogit <- glm(Recovery ~ R, family="binomial", data = R_patterns)
-summary(mylogit) %>%
+summary(lm.beta(mylogit))$coefficients %>%
   xtable() %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
@@ -1170,7 +1197,7 @@ And, finally, The _Delayed_ trajectory:
 mylogit <- glm(Delayed ~ R, 
                family="binomial", 
                data=R_patterns)
-summary(mylogit) %>%
+summary(lm.beta(mylogit))$coefficients %>%
   xtable() %>%
   kable() %>%
   kable_styling(bootstrap_options = c("hover", "striped"))
@@ -1598,295 +1625,4 @@ pairwise.t.test(traumatized_group_aconn$ChunkSimilarity,
   tidy() %>%
   kable() %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
-```
-
-
-
-# Predictions
-
-```{r}
-
-intermediate <- a %>%
-  filter(Day > 0) %>%
-  filter(Day <= 20) %>%
-  filter(I != 1) %>%
-  mutate(Condition = paste("(", I, 
-                           ", ",  C, 
-                           ", ", W, ")", sep="")) %>%
-  group_by(Day, I, C, gamma, W, Condition)  %>%
-  summarise(Intrusions=mean(CTraumatic),
-            SDIntrusions=sd(CTraumatic),) 
-```
-
-```{r fig.width=10, fig.height=10}
-ggplot(intermediate, 
-       aes(x=Day, y=Intrusions, col=as.factor(gamma))) +
-  geom_point() +
-  ylim(0, 50) +
-  facet_wrap(~ Condition) + #label=label_both) +
-  geom_vline(data=props, aes(xintercept=-0.15)) +
-  theme_pander()
-```
-
-
-Now, let's build the probability table
-
-```{r}
-get_prob_by_day <- function(n, day, Intensity, Context, WM, gammaval) {
-    intermediate %>%
-    filter(Day == day,
-           W == WM,
-           I == Intensity,
-           C == Context,
-           gamma == gammaval) -> sub
-    m <- sub$Intrusions
-    sd <- sub$SDIntrusions
-    dnorm(n, m, sd)
-}
-
-CREATE_LOGLIKELIHOODS <- F
-
-if (CREATE_LOGLIKELIHOODS) {
-  vals <- NULL
-  for (n in 0:50) {
-    print(n)
-    for (d in 1:20) {
-      for (i in c(20, 40, 60)) {
-        for (c in c(0, 0.25, 0.5, 0.75)) {
-          for (w in c(4, 8, 12)) {
-            for (g in c(0.8, 0.9, 0.95)) {
-              p <- get_prob_by_day(n, d, i, c, w, g)
-              result <- c(n, d, i, c, w, g, p)
-              if (is.null(vals)) {
-                vals <- result
-              } else {
-                vals <- rbind(vals, result)
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  
-
-  vals <- as_tibble(vals)
-  names(vals) <- c("N", "Day", "I", "C", "W", "gamma", "Probability")
-  
-  #Replace probabilities=0 with very small values 
-  vals$Probability[vals$Probability == 0] <- 1e-50
-  vals$LogLikelihood <- log(vals$Probability)
-  write_tsv(vals, "loglikelihoods.tsv")
-} else {
-  vals <- read_tsv("loglikelihoods.tsv")
-}
-```
-
-
-```{r}
-k <- NULL
-parameters_mle <- function(predicted) {
-  filtered <- NULL
-  day <- 1
-  #print(predicted)
-  for (n in as_vector(predicted)) {
-    sub <- vals %>%
-      filter(Day == day,  N == n)
-    #print(c(day, n, dim(sub)))
-    if (is.null(filtered)) {
-      filtered <- sub
-    } else {
-      filtered <- rbind(filtered, sub)
-    }
-    day <- day + 1
-  }
-  likelihoods <- filtered %>%
-    group_by(I, C, W, gamma) %>%
-    summarise(LogLikelihood = sum(LogLikelihood))
-  #filtered
-  filter(likelihoods, LogLikelihood == max(likelihoods$LogLikelihood))
-}
-```
-
-
-Example run:
-
-```{r}
-test <- a %>% 
-  filter(Day > 0, Day <= 20) %>%
-  filter(W == 4,  
-         C == 0.25, 
-         gamma == 0.9, 
-         I == 20, 
-         R == 0, 
-         A == 4, 
-         Run == 2) %>% 
-  dplyr::select(CTraumatic)
-parameters_mle(test)
-```
-
-Now let's analyze all the runs of the model, and create the predicted parameter values for each
-
-```{r}
-mle_prediction <- NULL
-
-CREATE_MLE <- F
-
-if (CREATE_MLE) {
-  options(dplyr.summarise.inform = FALSE)
-  a_sub <- a %>%
-    filter(Day > 0, Day <= 20, I > 1)
-  
-  
-  jj <- 1
-  
-  for (i in unique(a_sub$I)) {
-    for (c in unique(a_sub$C)) {
-      for (w in unique(a_sub$W)) {
-        for (g in unique(a_sub$gamma)) {
-          for (r in unique(a_sub$R)) {
-            for (att in unique(a_sub$A)) {
-              print(c(i, c, w, g, r, att))
-              for (j in unique(a_sub$Run)) {
-            
-                values <- a_sub %>%
-                  filter(W == w,  
-                         C == c, 
-                         gamma == g, 
-                         I == i, 
-                         R == r, 
-                         A == att, 
-                         Run == j) %>% 
-                  dplyr::select(CTraumatic)
-                prediction <- as_vector(parameters_mle(values))
-                
-                observed <- tibble(Parameters = c("I", "C", "W", "gamma"),
-                                   Type = "Observed",
-                                   Value = c(i, c, w, g),
-                                   LogLikelihood = prediction[5],
-                                   Run = jj)
-                
-                predicted  <- tibble(Parameters = c("I", "C", "W", "gamma"),
-                                     Type = "Prediction",
-                                     Value = prediction[1:4],
-                                     LogLikelihood = prediction[5],
-                                     Run = jj)
-                
-                set <- rbind(observed, predicted)
-                #print("Done")
-                
-                if (is.null(mle_prediction)) {
-                  mle_prediction <- set
-                } else {
-                  mle_prediction <- rbind(mle_prediction, set)
-                }
-                jj <- jj+1
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  options(dplyr.summarise.inform = T)
-  write_csv(mle_prediction, "mle_predictions.csv")
-} else {
-  mle_predictions <- read_csv("mle_predictions.csv")
-}
-```
-
-
-```{r}
-
-mle_predictions <- mle_predictions %>%
-  group_by(Parameters) %>%
-  mutate(ScaledValue = Value / max(Value))
-
-wmle_predictions <- mle_predictions %>%
-  dplyr::select(-ScaledValue) %>%
-  pivot_wider(values_from = "Value", names_from = "Type")
-
-ggplot(wmle_predictions, aes(x=Prediction, y=Observed)) +
-  geom_count(alpha=.5) +
-  geom_smooth(method="lm", col="red") +
-  facet_wrap(~Parameters, scales="free") +
-  theme_pander()
-```
-
-```{r}
-wmle_predictions %>%
-  ungroup() %>%
-  mutate(Accuracy = if_else(Prediction == Observed, 1, 0)) %>%
-  group_by(Parameters) %>%
-  summarise(Accuracy = mean(Accuracy),
-            RMSE = sqrt(mean((Prediction - Observed)**2)),
-            Correlation = cor.test(Prediction, Observed)$estimate) -> accuracies
-
-accuracies
-```
-
-```{r}
-accuracies$Chance = c(1/4, 1/3, 1/3, 1/3)
-
-ggplot(accuracies, aes(x=Parameters, y=Accuracy, col=Parameters)) +
-  facet_wrap(~Parameters, ncol=2, drop=TRUE, scales = "free_x") +
-  geom_col(col="lightgrey", fill="grey") +
-  geom_hline(aes(yintercept = Chance), linetype="dashed") +
-  theme_pander()
-
-ggsave("alia.png")
-
-```
-
-```{r}
-wmle_predictions %>%
-  ungroup() %>%
-  mutate(Accuracy = if_else(Prediction == Observed, 1, 0)) %>%
-  group_by(Parameters) %>%
-  summarise(Predicted = mean(Prediction),
-            Observed = mean(Observed),
-            PredictedSD = sd(Prediction),
-            ObservedSD = sd(Observed))
-```
-
-### Forward prediction
-
-```{r}
-grand <- a %>%
-  group_by(W, I, C, gamma, R, Trajectory) %>%
-  summarize(Prob = length(Trajectory) / 100)
-
-grand_f <- grand %>%
-  group_by(W, I, C, gamma, R) %>%
-  filter(Prob == max(Prob)) %>%
-  rename(PredictedTrajectory = Trajectory)
-
-forward_prediction <- full_join(patterns, grand_f) %>%
-  mutate(Accuracy = if_else(Trajectory == PredictedTrajectory, 1, 0))
-```
-Now, visualization
-
-```{r}
-forward_prediction %>%
-  filter(I > 1) %>%
-  group_by(PredictedTrajectory) %>%
-  summarise(Accuracy = mean(Accuracy)) 
-
-forward_prediction %>%
-  filter(I > 1) %>%
-  summarise(Accuracy = mean(Accuracy)) 
-```
-
-Visualization
-
-```{r}
-forward_prediction$Trajectory <- factor(forward_prediction$Trajectory,
-                                        levels = c("Resilient", "Recovery", "Chronic", "Delayed"))
-
-forward_prediction$PredictedTrajectory <- factor(forward_prediction$PredictedTrajectory,
-                                                 levels = c("Resilient", "Recovery", "Chronic", "Delayed"))
-
-ggplot(filter(forward_prediction, I > 1), aes(x=PredictedTrajectory, y=Trajectory)) +
-  geom_bin_2d() +
-  scale_fill_viridis()
 ```
