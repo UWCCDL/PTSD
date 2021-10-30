@@ -1241,6 +1241,7 @@ hsize <- a %>%
             MeanTraumatic = mean(PTraumatic),
             NumTraumatic = sum(CTraumatic),
             MeanSimilarity = mean(ChunkSimilarity),
+            PGroup = if_else(t.test(CTraumatic, mean=0)$p.value > 0.05, "Control", "PTSD"),
             Trajectory = )
 ```
 
@@ -1293,6 +1294,7 @@ hsize_trajectory <- a %>%
                    PTraumatic = mean(PTraumatic),
                    CTraumatic = sum(CTraumatic),
                    MeanSimilarity = mean(ChunkSimilarity))
+
 ```
 
 And here is the corresponding plot:
@@ -1351,7 +1353,7 @@ ggplot(filter(hsize_trajectory, I != 1),
 
 ```
 
-<<<<<<< HEAD
+
 Finally, we can now visualize the data on the DK brain atlas for clarity.
 
 ```{r, fig.width=8, fig.height=4}
@@ -1410,6 +1412,90 @@ p2 <- ggplot(hsize_trajectory,
 #p1 / p2
 
 #ggsave("figures/figure15.png", dpi=300)
+```
+
+
+#### Other versions
+
+By PGRoup
+
+```{r}
+
+clinically_recovered <- function(vals) {
+  if (length(unique(vals)) > 1) {
+    pval <- t.test(vals, mean=0)$p.value
+  } else {
+    if (unique(vals)[1] == 0) {
+      pval <- 1
+    } else {
+      pval <- 0
+    }
+  }
+  if (pval < 0.05) {
+    "PTSD"
+  } else {
+    "Control"
+  }
+}
+
+hsize_pgroup <- a %>%
+  filter(Day > 49, I != 1) %>%
+  group_by(Run, I, C, R, W, gamma) %>%
+  summarise(HippocampusDecrease = 100*(mean(MemoryEntropy)/H1 - 1),
+            PTraumatic = mean(PTraumatic),
+            PGroup = clinically_recovered(CTraumatic),
+            CTraumatic = sum(CTraumatic),
+            MeanSimilarity = mean(ChunkSimilarity))
+
+hpc_pgroup <- hsize_pgroup %>%
+  group_by(PGroup) %>%
+  summarise(VolumeChange = mean(HippocampusDecrease),
+            SD = sd(HippocampusDecrease)) %>%
+  add_column(region = "parahippocampal") 
+
+#hpc_pgroup$Trajectory <- as.character(hpc_group$Trajectory)
+
+p1 <- hpc_pgroup %>%
+  group_by(PGroup) %>%
+  ggplot(aes(fill = VolumeChange)) +
+  geom_brain(atlas = dk, 
+             col="white",
+             show.legend = T) +
+  coord_sf(xlim = c(750, 1050)) +
+  facet_wrap(~ PGroup , 
+             ncol=4,
+             labeller = label_bquote(
+               rows =  .(PGroup))) +
+  scale_fill_viridis("Mean %\nVolume Change", 
+                     option = "plasma", 
+                     na.value="lightgrey",
+                     direction = 1,
+                     limits=c(-10.0, 0)
+                     ) +
+  theme_brain2(text.family = "sans",
+               text.colour="black") +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(size=10, face="bold"),
+        legend.position = "right",
+        legend.title = element_text(size=10))
+
+p2 <- ggplot(hsize_pgroup, 
+             aes(x = "",
+                 y = HippocampusDecrease)) +
+  geom_violin(aes(fill=PGroup), alpha=0.5, 
+              col="white", width=1.05, bw=2) +
+  scale_fill_npg() +
+  stat_summary(geom="point", fun.data="mean_sdl") +
+  facet_wrap(~ PGroup, ncol=4) +
+  
+  stat_summary(geom="errorbar", fun.data="mean_sdl", width=.1, 
+               fun.args = list(mult=1)) +
+  ylab("% Volume Change") +
+  xlab("") +
+  theme_minimal() +
+  theme(strip.text=element_blank())
+
+p1/p2
 ```
 
 ### Comparisons
