@@ -225,16 +225,16 @@ The distribution of Gamma events is this:
 * Frequency: 2.1, 175 (shape, scale)
 * Rumination, 6, 100
 
-```{r}
+```{r, fig.width=5, fig.height=5}
 t <- 0:(24*60)
 E <- dgamma(t, shape=2.1, rate=1/175)
-R <- dgamma(t, shape=6, rate=1/100)
+U <- dgamma(t, shape=6, rate=1/100)
 
-dists <- data.frame(Time=t, Events = E, Rumination = R) %>%
+dists <- data.frame(Time=t, Events = E, Rumination = U) %>%
   pivot_longer(names_to = "Type", 
                values_to = "Probability",
                cols=c("Events", "Rumination"))
-
+dists$Type[dists$Type == "Rumination"] <- "Unproductive Processing"
 ggplot(dists, aes(x=Time, y=Probability, col=Type, fill=Type)) +
   geom_line() +
   geom_ribbon(data=dists, aes(x=Time, ymax=Probability, ymin=0), alpha=0.25) +
@@ -249,7 +249,8 @@ ggplot(dists, aes(x=Time, y=Probability, col=Type, fill=Type)) +
   scale_color_aaas() +
   scale_fill_aaas() +
   ggtitle("Probability of Retrievals During the Day") +
-  theme_pander()
+  theme_pander() +
+  theme(legend.position = "bottom")
 ```
 
 # Load and Transform the Data
@@ -614,6 +615,19 @@ ggplot(baseline_a,
   theme_pander() 
 
 ggsave("figures/figure7.png", dpi=300)
+
+ggplot(baseline_a, 
+       aes(x=Day, y=CTraumatic, col=Trajectory)) +
+  stat_summary(geom="line") +
+  ggtitle("Trajectories for Best-Fitting Parameters") +
+  scale_color_d3() +
+  geom_label(data=base_total, aes(x= c(25, 10, 20, 10), y = MeanC, 
+                                 label=percent(Prop, accuracy = 0.1)),
+            vjust=-.5, show.legend=F) +
+  ylab("Total Number of Memory Intrusions") +
+  geom_vline(data=props, aes(xintercept=-0.25)) +
+  scale_fill_d3() +
+  theme_pander() 
 ```
 
 The Chonic and Delayed trajectories, being the least common, exhibit significant ups and downs, hence the need for Loess smoothing. Nonetheless, the trajectories remain visible and clearly identifiable.
@@ -1074,7 +1088,9 @@ R_traumatic <- traumatic %>%
 
 Here we visualize the change in timecourses.
 
-```{r, fig.width = 3, fig.height=3}
+```{r, fig.width = 4, fig.height=3}
+
+
 ggplot(R_a, 
        aes(x=Day, y=CTraumatic, col=as.factor(R), fill=as.factor(R))) +
   stat_summary(fun.data = mean_se, geom="line") +
@@ -1087,9 +1103,9 @@ ggplot(R_a,
   #coord_cartesian(ylim=c(0, 0.75)) +
   ylab("Number of\nTraumatic Memory Intrusions") +
   #coord_cartesian(ylim=c(0, 0.75)) +
-  ggtitle("Effects of Rumination") +
-  scale_color_viridis(expression(paste(italic(R), " =")), discrete=T, option="plasma", end=0.8) +
-  scale_fill_viridis(expression(paste(italic(R), " =")), option = "plasma", discrete = T, end=0.8) +
+  ggtitle("Effects of\nUnproductive Processing") +
+  scale_color_viridis(expression(paste(italic(U), " =")), discrete=T, option="plasma", end=0.8) +
+  scale_fill_viridis(expression(paste(italic(U), " =")), option = "plasma", discrete = T, end=0.8) +
   theme_pander() +
   theme(legend.position = "bottom")
 ```
@@ -1120,18 +1136,18 @@ summary(lm.beta(R_mod))$coefficients %>%
 
 And here are the changes in trajectories.
 
-```{r, fig.height=3, fig.width=5}
+```{r, fig.height=3, fig.width=5.5}
 ggplot(data=R_test, aes(x="", y=N/100, fill=Trajectory)) +
   geom_bar(stat = "identity", col="white", width=1, alpha=1) +
   facet_wrap(~ R, labeller = label_bquote(
-               rows = italic(R) == .(R))) +
+               rows = italic(U) == .(R))) +
   coord_polar("y", start=0) +
   #scale_fill_d3() +
   scale_y_continuous(labels = scales::percent_format(accuracy = 2L)) +
   scale_fill_d3() +
   ylab("Rumination") +
   xlab("") +
-  ggtitle("Effect of Rumination on Trajectories") +
+  ggtitle("Effect of Unproductive Processing on Trajectories") +
   geom_text_repel(aes(label=percent(N/100, .1)),
             position=position_stack(vjust=0.5), size=3, col="white") +
   #geom_text_repel() +
@@ -1247,6 +1263,7 @@ hsize <- a %>%
 
 ### Visualizing Hippocampus Volume Decrease
 
+#### By Trajectory
 
 For pretty labels, we define two new labeller functions:
 
@@ -1415,11 +1432,11 @@ p2 <- ggplot(hsize_trajectory,
 ```
 
 
-#### Other versions
+#### By End-point Group
 
 By PGRoup
 
-```{r}
+```{r, fig.width=6, fig.height=5}
 
 clinically_recovered <- function(vals) {
   if (length(unique(vals)) > 1) {
@@ -1472,6 +1489,7 @@ p1 <- hpc_pgroup %>%
                      direction = 1,
                      limits=c(-10.0, 0)
                      ) +
+  ggtitle("Hippocampus Volume Decrease by Experimental Group") +
   theme_brain2(text.family = "sans",
                text.colour="black") +
   theme(strip.background = element_blank(),
@@ -1500,6 +1518,8 @@ p1/p2
 
 ### Comparisons
 
+#### By Trajectory
+
 Let's look at some raw data
 
 ```{r}
@@ -1526,7 +1546,6 @@ t.test(HippocampusDecrease ~ Group,
 Also, the the Control group shows a decrease of hippocampal volume that is small but significantly different than zero:
 
 ```{r}
-
 t.test(filter(hsize_trajectory, Group == "Control")$HippocampusDecrease,
        mean = 0) %>%
   tidy() %>%
@@ -1558,6 +1577,42 @@ pairwise.t.test(traumatized_group_hsize$HippocampusDecrease,
   kable() %>%
   kable_styling(bootstrap_options = c("stiped", "hover"))
 ```
+
+#### By End-of-point Group
+
+Let's look at some raw data
+
+```{r}
+hsize_pgroup %>%
+  group_by(PGroup) %>%
+  summarise(VolumeChange = mean(HippocampusDecrease),
+            SD = sd(HippocampusDecrease)) %>%
+  xtable() %>%
+  kable() %>%
+  kable_styling(bootstrap_options=c("striped", "hover"))
+```
+
+As expected, the the difference between simulated control groups (Traumatized controls and Traumatized PTSD) is significant to a two-sided, unequal variance _t_-test.
+
+```{r}
+t.test(HippocampusDecrease ~ PGroup, 
+       hsize_pgroup, 
+       var.equal=F) %>%
+  tidy() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+Finally, the effect in the Control group is significantly different than zero:
+
+```{r}
+with(hsize_pgroup, t.test(HippocampusDecrease[PGroup == "Control"], mu=0)) %>%
+  tidy() %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+
 ## Functional Connectivity
 
 Functional conectivity is measured through the similarity between each retrieved chunk and the current context, which is recorded in the `ChunkSimilarity` variable. 
@@ -1585,10 +1640,13 @@ ggplot(filter(k, I > 1),
   theme_pander() +
   theme(axis.text.x = element_blank(),
         legend.position = "bottom")
+
+
 ```
 
-<<<<<<< HEAD
 ### Visualizing Functional Connectivity
+
+#### By Trajectry
 
 And now, we can project the mean differences in connectivity onto the DK brain atlas. The analysis is performed by simulated patient group, symptomatic PTSD (the set of Recovery, Chronic, and Delayed trajectories) vs. asymptomatic traumatized group (Resilient trajectory).
 
@@ -1658,13 +1716,82 @@ p2 <- ggplot(aconn,
   theme(strip.text=element_blank())
 
 # Multi-plot
-#p1 / p2
+p1 / p2
 
-ggsave("figures/figure16.png", dpi=300)
+#ggsave("figures/figure16.png", dpi=300)
 ```
 
+#### By End-point experimental groups
+
+First, let's visualize the data
+
+```{r fig.width=6, fig.height=5}
+fconn <- hsize_pgroup %>%
+  filter(!is.na(MeanSimilarity),
+         C == 0)
+
+fc <- fconn %>%
+  group_by(PGroup) %>%
+  summarise(FC = mean(MeanSimilarity),
+            SD = sd(MeanSimilarity))
+
+fc1 <- fc %>%
+  add_column(region = "parahippocampal") 
+
+fc2 <- fc %>%
+  add_column(region = "medial orbitofrontal")
+
+fc_group <- rbind(fc1, fc2)
+
+p1 <- fc_group %>%
+  group_by(PGroup) %>%
+  ggplot(aes(fill = FC)) +
+  geom_brain(atlas = dk, 
+             col="white",
+             show.legend = T) +
+  coord_sf(xlim = c(750, 1050)) +
+  facet_wrap(~ PGroup, 
+             ncol=4,
+             labeller = label_bquote(
+               rows =  .(PGroup))) +
+  scale_fill_viridis("Mean Functional\nConnectivity", 
+                     option = "plasma", 
+                     na.value="lightgrey",
+                     direction = 1,
+                     limits=c(0.0, 0.6)
+                     ) +
+  theme_brain2(text.family = "sans",
+               text.colour="black") +
+  ggtitle("Functional Connectivity Between\nMedial PFC and Hippocampus by Experimental Group") +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(size=10, face="bold"),
+        legend.position = "right",
+        legend.title = element_text(size=10))
+
+p2 <- ggplot(fconn, 
+             aes(x = "",
+                 y = MeanSimilarity)) +
+  geom_violin(aes(fill=PGroup), alpha=0.5, 
+              col="white", width=1.05,
+              bw=0.1) +
+  scale_fill_npg() +
+  stat_summary(geom="point", fun.data="mean_sdl") +
+  stat_summary(geom="errorbar", fun.data="mean_sdl", width=.1, 
+               fun.args = list(mult=1)) +
+  facet_wrap(~ PGroup, ncol=2) +
+  ylab("Functional Connectivity") +
+  xlab("") +
+  theme_minimal() +
+  theme(strip.text=element_blank())
+
+# Multi-plot
+p1 / p2
+
+```
 
 ### Comparisons
+
+#### By Trajectory
 
 Let's look at the raw data and some descriptive statistics about predicted functional connectivity:
 
@@ -1712,3 +1839,19 @@ pairwise.t.test(traumatized_group_aconn$ChunkSimilarity,
   kable() %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
+
+
+#### By End-point Groups
+
+```{r}
+fconn %>%
+  ungroup() %>%
+  group_by(PGroup) %>%
+  summarise(FC = mean(MeanSimilarity),
+            SD = sd(MeanSimilarity))
+
+t.test(MeanSimilarity ~ PGroup, fconn,
+       pairted=F,
+       var.equal=F)
+```
+
