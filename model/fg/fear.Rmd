@@ -1,0 +1,50 @@
+--
+title: "Resting State vs. Task Based Parameters"
+author: "Andrea Stocco"
+date: "5/24/2021"
+output:
+  html_document:
+    code_folding: hide
+    theme: yeti
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  word_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+library(scales)
+library(ggthemes)
+library(ggsci)
+library(kableExtra)
+library(xtable)
+library(matlab)
+library(R.matlab)
+library(MCMCpack)
+library(ggrepel)
+```
+# Load
+
+```{r}
+fear <- read_csv("fg2.csv")
+
+names(fear) <- c("Noise", "Intensity", "Threshold", "BLC", "Stimulus", "Percentage")
+fear$Threshold <- as.factor(fear$Threshold)
+fear$Noise <- as.factor(fear$Noise)
+fear$Intensity <- as.factor(fear$Intensity)
+ggplot(fear, aes(x=Stimulus, y=Percentage, col=Threshold)) +
+  stat_summary(fun.data=mean_sdl, geom="point") +
+  #geom_point(position="jitter") +
+  facet_wrap(~Noise*Intensity) +
+  theme_pander()
+```
