@@ -1,4 +1,7 @@
 ;;; Fear generalization in PTSD
+;;;
+;;; Andrea Stocco
+
 
 ;;; This is from the original Smith & Stocco 2019 code (modified to use the goal  buffer instead of the imaginal) 
 (defmethod modified-spreading-activation (chunk
@@ -99,22 +102,22 @@
 	(plus isa chunk kind shock)
 	(minus isa chunk kind shock)
 	(ax1 isa stimulus first a1 second x shock plus kind episode id 1)
-	(ax2 isa stimulus first a2 second x shock plus kind episode id 2)
-	(ax3 isa stimulus first a3 second x shock plus kind episode id 3)
-	(ax4 isa stimulus first a4 second x shock plus kind episode id 4)
-	(ax5 isa stimulus first a5 second x shock plus kind episode id 5)
-	(ax6 isa stimulus first a6 second x shock plus kind episode id 6)
-	(ax7 isa stimulus first a7 second x shock plus kind episode id 7)
-	(ax8 isa stimulus first a8 second x shock plus kind episode id 8)
+	;(ax2 isa stimulus first a2 second x shock plus kind episode id 2)
+	;(ax3 isa stimulus first a3 second x shock plus kind episode id 3)
+	;(ax4 isa stimulus first a4 second x shock plus kind episode id 4)
+	;(ax5 isa stimulus first a5 second x shock plus kind episode id 5)
+	;(ax6 isa stimulus first a6 second x shock plus kind episode id 6)
+	;(ax7 isa stimulus first a7 second x shock plus kind episode id 7)
+	;(ax8 isa stimulus first a8 second x shock plus kind episode id 8)
 
 	(bx1 isa stimulus first b1 second x shock minus kind episode id 1)
-	(bx2 isa stimulus first b2 second x shock minus kind episode id 2)
-	(bx3 isa stimulus first b3 second x shock minus kind episode id 3)
-	(bx4 isa stimulus first b4 second x shock minus kind episode id 4)
-	(bx5 isa stimulus first b5 second x shock minus kind episode id 5)
-	(bx6 isa stimulus first b6 second x shock minus kind episode id 6)
-	(bx7 isa stimulus first b7 second x shock minus kind episode id 7)
-	(bx8 isa stimulus first b8 second x shock minus kind episode id 8)
+	;(bx2 isa stimulus first b2 second x shock minus kind episode id 2)
+	;(bx3 isa stimulus first b3 second x shock minus kind episode id 3)
+	;(bx4 isa stimulus first b4 second x shock minus kind episode id 4)
+	;(bx5 isa stimulus first b5 second x shock minus kind episode id 5)
+	;(bx6 isa stimulus first b6 second x shock minus kind episode id 6)
+	;(bx7 isa stimulus first b7 second x shock minus kind episode id 7)
+	;(bx8 isa stimulus first b8 second x shock minus kind episode id 8)
 	
 	(a1x isa stimulus first a1 second x shock nil kind episode)
 	(b1x isa stimulus first b1 second x shock nil kind episode)
@@ -139,14 +142,14 @@
 )
 
 
-(defun simulate (n &key (stimulus 'a1x) (intensity 1) (constant 1) (rt 0) (noise 0.2))
+(defun simulate (n &key (stimulus 'a1x) (intensity 1) (constant 1) (rt 0) (noise 0.2) (spreading 1))
   (let ((res nil))
     (dotimes (i n)
       (reload-fg)
-      (sgp-fct `(:blc ,constant :rt ,rt :v nil :ans ,noise))  
+      (sgp-fct `(:blc ,constant :rt ,rt :v nil :ans ,noise :ga ,spreading))  
       (setf *I* intensity)
       (goal-focus-fct stimulus)
-      (run 1)
+      (run 10)
       (let* ((retrieved (no-output (first (buffer-chunk-fct '(retrieval)))))
 	     (shock (if (null retrieved)
 			nil
@@ -168,19 +171,21 @@
                    :if-exists :append
                    :if-does-not-exist :create)
     (when header
-      (format logfile "~{~A~^,~}~%" '("Noise" "Intensity" "Threshold" "BLC" "Stimulus" "Percentage")))
+      (format logfile "~{~A~^,~}~%" '("Noise" "Intensity" "Threshold" "BLC" "W" "Stimulus" "Percentage")))
               
-    (dolist (noise '(0.25 0.3 0.35 0.4 0.45 0.5))
-      (dolist (intensity '(0 0.1))
-	(dolist (const '(0.25 0.5))
-	  (dolist (rt '(1.0 2 2.5 3 3.25 3.5 3.75 4))
-	    (dolist (chunk '(a1x b1x a1b1))
-	      (let* ((res (simulate 200 :stimulus chunk :intensity intensity :rt rt :noise noise))
-		     (row (list (no-output (first (sgp-fct '(:ans))))
-				*I*
-				(no-output (first (sgp-fct '(:rt))))
-				(no-output (first (sgp-fct '(:blc))))
-				chunk
-				(mean res))))
-		(format logfile "~{~,4f~^,~}~%" row))))))
+    (dolist (noise '(0.1 0.2 0.3 0.4 0.5))
+      (dolist (intensity '(0.25 0.5 0.75))
+	(dolist (const '(0.5 0.75 1.0))
+	  (dolist (rt '(0 0.5 1 1.5 2.0 2.5 3 3.5 4))
+	    (dolist (w '(0 0.5 1.0))
+	      (dolist (chunk '(a1x b1x a1b1))
+		(let* ((res (simulate 100 :stimulus chunk :intensity intensity :rt rt :noise noise :spreading w :constant const))
+		       (row (list (no-output (first (sgp-fct '(:ans))))
+				  *I*
+				  (no-output (first (sgp-fct '(:rt))))
+				  (no-output (first (sgp-fct '(:blc))))
+				  (no-output (first (sgp-fct '(:ga))))
+				  chunk
+				  (mean res))))
+		  (format logfile "~{~,4f~^,~}~%" row)))))))
       (format t "Done (noise ~a)~%" noise))))
